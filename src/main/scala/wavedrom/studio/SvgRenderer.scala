@@ -128,7 +128,10 @@ object SvgRenderer {
           val parsedNodes = WaveJsonCodec.parseNodeTokens(sig.node)
           parsedNodes.foreach { case (cycleIdx, nodeNames) =>
             nodeNames.foreach { nodeName =>
-              val nx = labelWidth + (cycleIdx + 0.5) * step
+              // Markers sit on the cycle's leading edge: the rising edge of a
+              // `p` clock, the falling edge of an `n` clock, and the point
+              // where data changes
+              val nx = labelWidth + cycleIdx * step
               val ny = yMid
               nodeLocations = nodeLocations.updated(
                 nodeName,
@@ -326,7 +329,7 @@ object SvgRenderer {
 
                   if (labelText != null && labelText.trim.nonEmpty) {
                     sb.append(
-                      s"""<text x="$midX" y="${midY + 3.5}" fill="#38bdf8" stroke="#020617" stroke-width="4.5" paint-order="stroke fill" stroke-linejoin="round" font-size="11" font-weight="700" text-anchor="middle">${escapeHtml(
+                      s"""<text x="$midX" y="${midY + 3.5}" fill="#f472b6" font-size="11" font-weight="700" text-anchor="middle">${escapeHtml(
                           labelText.trim
                         )}</text>"""
                     )

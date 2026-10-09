@@ -73,6 +73,16 @@ class SvgRendererSuite extends munit.FunSuite {
     assert(!svg.contains("onclick"))
   }
 
+  test("places node markers on the leading edge of their cycle") {
+    val state = new AppState()
+    state.updateFromText(twoSignals)
+    val svg = SvgRenderer.renderToString(state)
+    // labelWidth 120 + cycle 1 * step 45; the badge is centred on that x
+    val centre = 120.0 + 1 * state.stepWidth
+    val badge = """<text x="([0-9.]+)" y="[0-9.]+" fill="#ffffff"""".r
+    assertEquals(badge.findFirstMatchIn(svg).map(_.group(1).toDouble), Some(centre))
+  }
+
   test("highlights the cycle being edited") {
     val state = new AppState()
     state.updateFromText(twoSignals)
