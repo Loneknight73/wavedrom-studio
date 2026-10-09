@@ -1,0 +1,11 @@
+{
+  "name": "wavedrom-plus",
+  "version": "0.1.0",
+  "description": "Interactive WaveDrom timing diagram studio powered by Scala 3 & Scala.js",
+  "scripts": {
+    "build": "sbt fastLinkJS",
+    "watch": "sbt ~fastLinkJS",
+    "start": "node server.js",
+    "launch": "sbt fastLinkJS && node server.js"
+  }
+}

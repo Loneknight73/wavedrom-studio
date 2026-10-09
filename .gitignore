@@ -1,0 +1,8 @@
+target/
+project/target/
+project/project/
+.bloop/
+.metals/
+.bsp/
+project/metals.sbt
+node_modules/
