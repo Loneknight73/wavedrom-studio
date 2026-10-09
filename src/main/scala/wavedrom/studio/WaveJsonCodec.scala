@@ -91,15 +91,16 @@ object WaveJsonCodec {
     var resultMap = Map.empty[Int, Vector[String]]
     var cycleIdx = 0
 
+    // Dots are always gaps, one cycle each; a run of other characters is one
+    // marker name, so "..d.." is two gaps, the marker d, and two more gaps.
+    val runs = """\.+|[^.]+""".r
     tokens.foreach { tok =>
-      if (tok.nonEmpty) {
-        if (tok.forall(_ == '.')) {
-          cycleIdx += tok.length
-        } else if (tok == ".") {
-          cycleIdx += 1
+      runs.findAllIn(tok).foreach { run =>
+        if (run.head == '.') {
+          cycleIdx += run.length
         } else {
           val existing = resultMap.getOrElse(cycleIdx, Vector.empty)
-          resultMap = resultMap.updated(cycleIdx, existing :+ tok)
+          resultMap = resultMap.updated(cycleIdx, existing :+ run)
           cycleIdx += 1
         }
       }

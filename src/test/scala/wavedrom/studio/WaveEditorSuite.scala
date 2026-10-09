@@ -110,6 +110,14 @@ class WaveEditorSuite extends munit.FunSuite {
     )
   }
 
+  test("setNode keeps existing markers when the node uses dots inside tokens") {
+    val edited = WaveEditor.setNode(track("0" * 12, node = "..... skkdc ..d.."), 10, "e")
+    assertEquals(
+      WaveJsonCodec.parseNodeTokens(edited.node),
+      Map(5 -> Vector("skkdc"), 8 -> Vector("d"), 10 -> Vector("e"))
+    )
+  }
+
   test("setNode keeps a lone multi-character marker readable") {
     val edited = WaveEditor.setNode(track("0..."), 0, "ack")
     assertEquals(

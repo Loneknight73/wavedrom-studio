@@ -97,6 +97,17 @@ class WaveJsonCodecSuite extends munit.FunSuite {
     )
   }
 
+  test("parseNodeTokens treats dots inside a spaced token as gaps") {
+    assertEquals(
+      WaveJsonCodec.parseNodeTokens("..... skkdc ..d.."),
+      Map(5 -> Vector("skkdc"), 8 -> Vector("d"))
+    )
+    assertEquals(
+      WaveJsonCodec.parseNodeTokens("a.b ..c"),
+      Map(0 -> Vector("a"), 2 -> Vector("b"), 5 -> Vector("c"))
+    )
+  }
+
   test("parseNodeTokens returns nothing for an empty string") {
     assertEquals(WaveJsonCodec.parseNodeTokens(""), Map.empty)
   }
