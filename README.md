@@ -58,6 +58,9 @@ You can also open [index.html](index.html) directly in any web browser.
 
 ## ✏️ Using the Studio
 
+- **Tabs**: each tab is one diagram with its own JSON, zoom and undo history. `+` adds an empty one, `×` closes it, and a dot marks unsaved changes.
+- **Open**: the Open… button or Ctrl+O loads one or more `.json` files, each in a new tab. Picking a built-in sample also opens a new tab.
+- **Save**: the Save button or Ctrl+S writes the current tab's JSON. In Edge and Chrome it saves back to the opened file (or asks where to save a new one); in other browsers it downloads the file.
 - **Resize the panes**: drag the divider between the JSON editor and the waveform. Double-click it to reset.
 - **Zoom**: use the slider or the − / + buttons, or hold Ctrl and scroll over the waveform.
 - **Edit a wave graphically**: click any cycle to open the cycle editor.
@@ -80,7 +83,11 @@ wavedrom-plus/
 │   │   ├── Model.scala              # AST & domain model (WaveState, SignalTrack, WaveDiagram, ...)
 │   │   ├── WaveJsonCodec.scala      # WaveJSON parser & serializer
 │   │   ├── WaveEditor.scala         # Pure edit operations on a signal (cycles, nodes, bus labels)
-│   │   ├── AppState.scala           # Application state, edit write-back & undo
+│   │   ├── AppState.scala           # State of one open document, edit write-back & undo
+│   │   ├── Workspace.scala          # The open documents (tabs)
+│   │   ├── Samples.scala            # Built-in sample diagrams
+│   │   ├── FileIO.scala             # Opening and saving local files
+│   │   ├── TabBar.scala             # Tab strip
 │   │   ├── SvgRenderer.scala        # SVG waveform render engine
 │   │   ├── CyclePopover.scala       # Cycle editor popover
 │   │   ├── SplitPane.scala          # Draggable divider between the panes

@@ -1,7 +1,36 @@
 package wavedrom.studio
 
+import scala.scalajs.js
+
+object AppState {
+  // A document as it comes from a file or a sample: loaded and not yet modified
+  def open(
+      text: String,
+      fileName: Option[String] = None,
+      fileHandle: Option[js.Any] = None
+  ): AppState = {
+    val state = new AppState()
+    state.fileName = fileName
+    state.fileHandle = fileHandle
+    state.updateFromText(text)
+    state.markSaved()
+    state
+  }
+}
+
+// The state of one open document (one tab)
 class AppState {
   var jsonText: String = ""
+
+  var fileName: Option[String] = None
+  // FileSystemFileHandle to save back to, where the browser provides one
+  var fileHandle: Option[js.Any] = None
+  private var savedText: String = ""
+
+  def title: String = fileName.getOrElse("untitled")
+  def isDirty: Boolean = jsonText != savedText
+  def markSaved(text: String = jsonText): Unit = savedText = text
+
   var document: Option[WaveDocument] = None
   var stepWidth: Double = 45.0
   val rowHeight: Double = 52.0
