@@ -32,7 +32,9 @@ class AppState {
   def markSaved(text: String = jsonText): Unit = savedText = text
 
   var document: Option[WaveDocument] = None
-  var stepWidth: Double = 45.0
+  val stepWidth: Double = 45.0
+  // Scale of the whole drawing on screen; 1.0 is its natural size
+  var zoom: Double = 1.0
   val rowHeight: Double = 52.0
   var selectedNodeForEdge: Option[String] = None
 
@@ -76,6 +78,17 @@ class AppState {
       jsonText
     }
   }
+
+  // Replaces the whole text (e.g. after reformatting) as one undoable step.
+  // Returns None when the text is unchanged.
+  def replaceText(newText: String): Option[String] =
+    if (newText == jsonText) None
+    else {
+      val previousText = jsonText
+      updateFromText(newText)
+      undoStack = (previousText :: undoStack).take(maxUndo)
+      Some(jsonText)
+    }
 
   def undo(): Option[String] = undoStack match {
     case previousText :: rest =>

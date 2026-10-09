@@ -41,6 +41,17 @@ class AppStateSuite extends munit.FunSuite {
     assertEquals(stateWith("01").applyEdit(5, WaveEditor.setCycle(_, 0, '1')), None)
   }
 
+  test("replaceText is one undoable step, and a no-op when nothing changes") {
+    val state = stateWith("01")
+    val original = state.jsonText
+    val reformatted = """{ "signal": [ { "name": "s", "wave": "01" } ] }""".replace(" ", "")
+    assertEquals(state.replaceText(reformatted), Some(reformatted))
+    assertEquals(state.jsonText, reformatted)
+    assertEquals(state.replaceText(reformatted), None)
+    assertEquals(state.undo(), Some(original))
+    assertEquals(waveOf(state), "01")
+  }
+
   test("undo restores the text from before each edit") {
     val state = stateWith("01")
     val original = state.jsonText

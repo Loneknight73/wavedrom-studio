@@ -19,8 +19,8 @@ object Dom {
 object WaveDromStudioApp {
   import Dom.byId
 
-  private val minStepWidth = 15.0
-  private val maxStepWidth = 250.0
+  private val minZoom = 0.25
+  private val maxZoom = 4.0
   private val stateKeys = "10pnxz=."
   private val defaultFileName = "waveform.json"
 
@@ -50,7 +50,11 @@ object WaveDromStudioApp {
   }
 
   private def init(): Unit = {
-    SplitPane.init(byId[html.Element]("studioLayout"), byId[html.Element]("splitter"))
+    SplitPane.init(
+      byId[html.Element]("studioLayout"),
+      byId[html.Element]("splitter"),
+      byId[html.Button]("layoutBtn")
+    )
 
     jsonEditor.addEventListener("input", (_: dom.Event) => loadFromEditor())
 
@@ -62,17 +66,18 @@ object WaveDromStudioApp {
 
     zoomRange.addEventListener(
       "input",
-      (_: dom.Event) => zoomRange.value.toDoubleOption.foreach(setStepWidth)
+      (_: dom.Event) => zoomRange.value.toDoubleOption.foreach(percent => setZoom(percent / 100))
     )
     byId[html.Button]("zoomOutBtn").addEventListener(
       "click",
-      (_: dom.Event) => setStepWidth(state.stepWidth / 1.25)
+      (_: dom.Event) => setZoom(state.zoom / 1.25)
     )
     byId[html.Button]("zoomInBtn").addEventListener(
       "click",
-      (_: dom.Event) => setStepWidth(state.stepWidth * 1.25)
+      (_: dom.Event) => setZoom(state.zoom * 1.25)
     )
     undoBtn.addEventListener("click", (_: dom.Event) => undo())
+    byId[html.Button]("formatBtn").addEventListener("click", (_: dom.Event) => formatJson())
     byId[html.Button]("clearSelectionBtn").addEventListener(
       "click",
       (_: dom.Event) => {
@@ -117,7 +122,7 @@ object WaveDromStudioApp {
   // Puts the active tab's document into the editor, toolbar and canvas
   private def showActiveTab(): Unit = {
     jsonEditor.value = state.jsonText
-    showStepWidth()
+    showZoom()
     loadFromEditor()
   }
 
@@ -224,6 +229,25 @@ object WaveDromStudioApp {
     loadFromEditor()
   }
 
+  // Re-indents the JSON in the compact WaveJSON layout (one signal per line),
+  // the same one graphical edits write. Undoable, unlike typing, because it replaces the
+  // textarea's value and so discards the browser's own undo history.
+  private def formatJson(): Unit = {
+    try {
+      val formatted = WaveJsonCodec.format(js.JSON.parse(jsonEditor.value))
+      state.replaceText(formatted) match {
+        case Some(text) =>
+          jsonEditor.value = text
+          loadFromEditor()
+          toast("JSON formatted")
+        case None => toast("JSON is already formatted")
+      }
+    } catch {
+      case js.JavaScriptException(e) =>
+        toast(s"JSON parse error: ${e.asInstanceOf[js.Dynamic].message}")
+    }
+  }
+
   private def undo(): Unit = {
     state.undo().foreach(previousJson => jsonEditor.value = previousJson)
     loadFromEditor()
@@ -258,16 +282,18 @@ object WaveDromStudioApp {
 
   // --- Zoom ----------------------------------------------------------------
 
-  private def setStepWidth(width: Double): Unit = {
-    state.stepWidth =
-      Math.max(minStepWidth, Math.min(maxStepWidth, width)).round.toDouble
-    showStepWidth()
+  private def setZoom(zoom: Double): Unit = {
+    // Kept to whole percents, so the slider and the label show the real value
+    state.zoom = Math.max(minZoom, Math.min(maxZoom, (zoom * 100).round / 100.0))
+    showZoom()
     render()
   }
 
-  private def showStepWidth(): Unit = {
-    zoomRange.value = state.stepWidth.toInt.toString
-    zoomValue.textContent = s"${state.stepWidth.toInt}px"
+  private def zoomPercent: Int = (state.zoom * 100).round.toInt
+
+  private def showZoom(): Unit = {
+    zoomRange.value = zoomPercent.toString
+    zoomValue.textContent = s"$zoomPercent%"
   }
 
   // --- Event handlers ------------------------------------------------------
@@ -289,7 +315,7 @@ object WaveDromStudioApp {
   private def onSvgWheel(e: dom.WheelEvent): Unit = {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault()
-      setStepWidth(state.stepWidth * (if (e.deltaY < 0) 1.1 else 1 / 1.1))
+      setZoom(state.zoom * (if (e.deltaY < 0) 1.1 else 1 / 1.1))
     }
   }
 

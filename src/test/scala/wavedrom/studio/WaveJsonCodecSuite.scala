@@ -172,6 +172,9 @@ class WaveJsonCodecSuite extends munit.FunSuite {
       formatted
     )
     assert(lines.contains("{},"), formatted)
+    // a group's name stays on the line that opens it
+    assert(lines.contains("""[ "Inner","""), formatted)
+    assert(formatted.contains("""[ "Bus","""), formatted)
     assert(lines.contains(""""head": { "text": "Title" },"""), formatted)
     assert(lines.contains(""""a~>b go""""), formatted)
   }

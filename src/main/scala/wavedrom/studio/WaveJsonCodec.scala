@@ -155,7 +155,11 @@ object WaveJsonCodec {
     else if (js.Array.isArray(value)) {
       val items = value.asInstanceOf[js.Array[js.Any]]
       if (items.isEmpty) "[]"
-      else
+      else if (items.length > 1 && js.typeOf(items(0)) == "string") {
+        // A signal group: its name shares the line with the opening bracket
+        val rest = items.drop(1).map(item => pad + formatValue(item, depth + 1))
+        s"[ ${js.JSON.stringify(items(0))},\n" + rest.mkString("", ",\n", s"\n$closePad]")
+      } else
         items
           .map(item => pad + formatValue(item, depth + 1))
           .mkString("[\n", ",\n", s"\n$closePad]")

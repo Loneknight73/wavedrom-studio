@@ -31,7 +31,9 @@ object SvgRenderer {
 
         val sb = new StringBuilder()
         sb.append(
-          s"""<svg width="$totalWidth" height="$totalHeight" viewBox="0 0 $totalWidth $totalHeight" xmlns="http://www.w3.org/2000/svg" class="wave-svg" font-family="'JetBrains Mono', monospace" style="user-select:none">"""
+          // The drawing is laid out at its natural size; zooming only changes
+          // the size it is shown at, so everything scales together
+          s"""<svg width="${totalWidth * state.zoom}" height="${totalHeight * state.zoom}" viewBox="0 0 $totalWidth $totalHeight" xmlns="http://www.w3.org/2000/svg" class="wave-svg" font-family="'JetBrains Mono', monospace" style="user-select:none">"""
         )
 
         // Defs Section

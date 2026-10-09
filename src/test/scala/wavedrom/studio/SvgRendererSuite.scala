@@ -83,6 +83,23 @@ class SvgRendererSuite extends munit.FunSuite {
     assertEquals(badge.findFirstMatchIn(svg).map(_.group(1).toDouble), Some(centre))
   }
 
+  test("zoom scales the displayed size and leaves the drawing itself alone") {
+    val state = new AppState()
+    state.updateFromText(twoSignals)
+    val natural = SvgRenderer.renderToString(state)
+    state.zoom = 2.0
+    val zoomed = SvgRenderer.renderToString(state)
+
+    val size = """<svg width="([0-9.]+)" height="([0-9.]+)" viewBox="0 0 ([0-9.]+) ([0-9.]+)"""".r
+    def sizes(svg: String): Vector[Double] =
+      size.findFirstMatchIn(svg).get.subgroups.map(_.toDouble).toVector
+
+    val Vector(w, h, vw, vh) = sizes(natural)
+    assertEquals((w, h), (vw, vh))
+    assertEquals(sizes(zoomed), Vector(2 * w, 2 * h, vw, vh))
+    assertEquals(zoomed.drop(zoomed.indexOf('>')), natural.drop(natural.indexOf('>')))
+  }
+
   test("highlights the cycle being edited") {
     val state = new AppState()
     state.updateFromText(twoSignals)
