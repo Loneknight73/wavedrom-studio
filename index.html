@@ -792,13 +792,40 @@
       }
     }
 
+    // The rendered SVG relies on the page for its dark background and for the
+    // padding that keeps edge content from being clipped, so a copy that is
+    // meant to stand alone gets both built in, and loses the click targets.
+    function standaloneSvg() {
+      const live = document.querySelector("#svgContainer svg");
+      if (!live) return null;
+      const margin = 24;
+      const width = parseFloat(live.getAttribute("width")) + 2 * margin;
+      const height = parseFloat(live.getAttribute("height")) + 2 * margin;
+      const svg = live.cloneNode(true);
+      svg.querySelectorAll(".cycle-hit").forEach(el => el.remove());
+      svg.removeAttribute("class");
+      svg.removeAttribute("style");
+      svg.setAttribute("width", width);
+      svg.setAttribute("height", height);
+      svg.setAttribute("viewBox", `${-margin} ${-margin} ${width} ${height}`);
+      const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      background.setAttribute("x", -margin);
+      background.setAttribute("y", -margin);
+      background.setAttribute("width", width);
+      background.setAttribute("height", height);
+      background.setAttribute("rx", 12);
+      background.setAttribute("fill", "#0f172a");
+      svg.insertBefore(background, svg.firstChild);
+      return svg.outerHTML;
+    }
+
     function copySvg() {
-      const svg = document.querySelector("#svgContainer svg");
-      if (!svg) {
+      const markup = standaloneSvg();
+      if (!markup) {
         showToast("No SVG rendered");
         return;
       }
-      navigator.clipboard.writeText(svg.outerHTML).then(() => {
+      navigator.clipboard.writeText(markup).then(() => {
         showToast("SVG copied to clipboard!");
       }).catch(err => {
         showToast("Failed to copy SVG: " + err);
@@ -806,12 +833,12 @@
     }
 
     function exportSvgFile() {
-      const svg = document.querySelector("#svgContainer svg");
-      if (!svg) {
+      const markup = standaloneSvg();
+      if (!markup) {
         showToast("No SVG rendered");
         return;
       }
-      const blob = new Blob([svg.outerHTML], { type: "image/svg+xml;charset=utf-8" });
+      const blob = new Blob([markup], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
