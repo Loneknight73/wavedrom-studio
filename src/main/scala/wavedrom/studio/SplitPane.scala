@@ -5,28 +5,75 @@ import org.scalajs.dom.html
 import scala.scalajs.js
 import scala.util.Try
 
-// Draggable divider between the JSON editor and the waveform pane. The editor
-// width lives in the --editor-width CSS variable on the layout element.
+// The layout of the JSON editor and the waveform pane: side by side or
+// stacked, with a draggable divider between them. The editor's size lives in
+// the --editor-width (side by side) or --editor-height (stacked) CSS variable
+// on the layout element, and each orientation remembers its own size.
 object SplitPane {
 
-  private val storageKey = "wavedrom-plus.editorWidth"
+  private val layoutKey = "wavedrom-plus.layout"
+  private val widthKey = "wavedrom-plus.editorWidth"
+  private val heightKey = "wavedrom-plus.editorHeight"
   private val minPaneWidth = 240.0
+  private val minPaneHeight = 120.0
 
-  def init(layout: html.Element, splitter: html.Element): Unit = {
+  private def stored(key: String): Option[String] =
+    Try(dom.window.localStorage.getItem(key)).toOption.flatMap(Option(_))
+
+  private def store(key: String, value: Option[String]): Unit =
+    Try(value match {
+      case Some(v) => dom.window.localStorage.setItem(key, v)
+      case None    => dom.window.localStorage.removeItem(key)
+    })
+
+  def init(
+      layout: html.Element,
+      splitter: html.Element,
+      layoutButton: html.Button
+  ): Unit = {
     // Pointer capture is not exposed on scalajs-dom's html.Element
     val capture = splitter.asInstanceOf[js.Dynamic]
     var dragging = false
 
-    def setWidth(px: Double): Unit = {
-      val maxWidth = layout.clientWidth - minPaneWidth - splitter.offsetWidth
-      val clamped = Math.max(minPaneWidth, Math.min(maxWidth, px))
-      layout.style.setProperty("--editor-width", s"${clamped.round}px")
+    def stacked: Boolean = layout.classList.contains("stacked")
+    def sizeVar: String = if (stacked) "--editor-height" else "--editor-width"
+    def sizeKey: String = if (stacked) heightKey else widthKey
+
+    def setSize(px: Double): Unit = {
+      val (total, divider, min) =
+        if (stacked)
+          (layout.clientHeight.toDouble, splitter.offsetHeight.toDouble, minPaneHeight)
+        else
+          (layout.clientWidth.toDouble, splitter.offsetWidth.toDouble, minPaneWidth)
+      val clamped = Math.max(min, Math.min(total - min - divider, px))
+      layout.style.setProperty(sizeVar, s"${clamped.round}px")
     }
 
-    Try(dom.window.localStorage.getItem(storageKey)).toOption
-      .flatMap(Option(_))
-      .flatMap(_.toDoubleOption)
-      .foreach(setWidth)
+    // Applies the remembered size of the current orientation
+    def restoreSize(): Unit = {
+      layout.style.removeProperty("--editor-width")
+      layout.style.removeProperty("--editor-height")
+      stored(sizeKey).flatMap(_.toDoubleOption).foreach(setSize)
+    }
+
+    def setStacked(value: Boolean): Unit = {
+      layout.classList.toggle("stacked", value)
+      layoutButton.textContent = if (value) "Side by side" else "Stack panes"
+      layoutButton.title =
+        if (value) "Put the JSON editor and the waveform side by side"
+        else "Put the JSON editor above the waveform"
+      restoreSize()
+    }
+
+    setStacked(stored(layoutKey).contains("stacked"))
+
+    layoutButton.addEventListener(
+      "click",
+      (_: dom.Event) => {
+        setStacked(!stacked)
+        store(layoutKey, Option.when(stacked)("stacked"))
+      }
+    )
 
     splitter.addEventListener(
       "pointerdown",
@@ -41,7 +88,10 @@ object SplitPane {
     splitter.addEventListener(
       "pointermove",
       (e: dom.PointerEvent) => {
-        if (dragging) setWidth(e.clientX - layout.getBoundingClientRect().left)
+        if (dragging) {
+          val box = layout.getBoundingClientRect()
+          setSize(if (stacked) e.clientY - box.top else e.clientX - box.left)
+        }
       }
     )
 
@@ -50,11 +100,8 @@ object SplitPane {
         dragging = false
         capture.releasePointerCapture(e.pointerId)
         dom.document.body.classList.remove("resizing")
-        val width = layout.style.getPropertyValue("--editor-width")
-        Try(
-          dom.window.localStorage
-            .setItem(storageKey, width.stripSuffix("px").trim)
-        )
+        val size = layout.style.getPropertyValue(sizeVar)
+        store(sizeKey, Some(size.stripSuffix("px").trim))
       }
     }
     splitter.addEventListener("pointerup", endDrag _)
@@ -63,8 +110,8 @@ object SplitPane {
     splitter.addEventListener(
       "dblclick",
       (_: dom.MouseEvent) => {
-        layout.style.removeProperty("--editor-width")
-        Try(dom.window.localStorage.removeItem(storageKey))
+        layout.style.removeProperty(sizeVar)
+        store(sizeKey, None)
       }
     )
   }

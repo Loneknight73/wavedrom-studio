@@ -344,8 +344,22 @@
       transition: background 0.15s ease;
     }
 
+    /* Stacked: the editor sits above the waveform */
+    .studio-layout.stacked {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: var(--editor-height, 40%) 6px minmax(0, 1fr);
+    }
+
+    .studio-layout.stacked #splitter {
+      cursor: row-resize;
+    }
+
     #splitter:hover, body.resizing #splitter {
       background: var(--accent-cyan);
+    }
+
+    body.resizing:has(.studio-layout.stacked) {
+      cursor: row-resize;
     }
 
     body.resizing {
@@ -419,6 +433,11 @@
       backdrop-filter: blur(8px);
       border-radius: 12px;
       padding: 1rem;
+      /* Shown at exactly the size the renderer asks for: when the drawing is
+         bigger than the pane, the pane scrolls instead of squeezing it */
+      box-sizing: content-box;
+      flex-shrink: 0;
+      max-width: none;
     }
 
     /* Interactive parts of the rendered waveform */
@@ -686,16 +705,17 @@
     </div>
 
     <div class="toolbar-group">
-      <span class="toolbar-label">Step Width (Zoom):</span>
+      <span class="toolbar-label">Zoom:</span>
       <button class="btn btn-icon" id="zoomOutBtn" title="Zoom out">&minus;</button>
-      <input type="range" id="zoomRange" class="zoom-slider" min="15" max="250" value="45">
+      <input type="range" id="zoomRange" class="zoom-slider" min="25" max="400" value="100">
       <button class="btn btn-icon" id="zoomInBtn" title="Zoom in">+</button>
-      <span id="zoomValue" style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; min-width:32px;">45px</span>
+      <span id="zoomValue" style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; min-width:36px;">100%</span>
     </div>
 
     <div class="toolbar-group" style="margin-left: auto;">
-      <button class="btn" onclick="formatJson()" title="Format JSON">Format JSON</button>
-      <button class="btn" id="undoBtn" title="Undo the last graphical edit (Ctrl+Z)" disabled>Undo</button>
+      <button class="btn" id="layoutBtn" title="Put the JSON editor above the waveform">Stack panes</button>
+      <button class="btn" id="formatBtn" title="Re-indent the JSON (undoable)">Format JSON</button>
+      <button class="btn" id="undoBtn" title="Undo the last graphical edit or reformat (Ctrl+Z)" disabled>Undo</button>
       <button class="btn" id="clearSelectionBtn" title="Clear Edge Node Selection">Clear Node Selection</button>
     </div>
   </div>
@@ -780,18 +800,6 @@
   <div id="toast"></div>
 
   <script>
-    function formatJson() {
-      const editor = document.getElementById("jsonEditor");
-      try {
-        const parsed = JSON.parse(editor.value);
-        editor.value = JSON.stringify(parsed, null, 2);
-        editor.dispatchEvent(new Event("input"));
-        showToast("JSON Formatted");
-      } catch (e) {
-        showToast("JSON parse error: " + e.message);
-      }
-    }
-
     // The rendered SVG relies on the page for its dark background and for the
     // padding that keeps edge content from being clipped, so a copy that is
     // meant to stand alone gets both built in, and loses the click targets.
@@ -799,8 +807,9 @@
       const live = document.querySelector("#svgContainer svg");
       if (!live) return null;
       const margin = 24;
-      const width = parseFloat(live.getAttribute("width")) + 2 * margin;
-      const height = parseFloat(live.getAttribute("height")) + 2 * margin;
+      // The viewBox holds the natural size; width and height follow the zoom
+      const width = live.viewBox.baseVal.width + 2 * margin;
+      const height = live.viewBox.baseVal.height + 2 * margin;
       const svg = live.cloneNode(true);
       svg.querySelectorAll(".cycle-hit").forEach(el => el.remove());
       svg.removeAttribute("class");

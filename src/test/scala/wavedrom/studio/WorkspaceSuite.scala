@@ -64,11 +64,11 @@ class WorkspaceSuite extends munit.FunSuite {
 
   test("each tab keeps its own document, zoom and undo history") {
     val workspace = workspaceOf("a", "b")
-    workspace.active.stepWidth = 90
+    workspace.active.zoom = 2.0
     workspace.active.applyEdit(0, WaveEditor.setCycle(_, 0, '1'))
     workspace.select(0)
     assertEquals(workspace.active.diagram.get.signals.head.wave, "01")
-    assertEquals(workspace.active.stepWidth, 45.0)
+    assertEquals(workspace.active.zoom, 1.0)
     assert(!workspace.active.canUndo)
     workspace.select(1)
     assertEquals(workspace.active.diagram.get.signals.head.wave, "11")

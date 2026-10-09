@@ -62,7 +62,8 @@ You can also open [index.html](index.html) directly in any web browser.
 - **Open**: the Open… button or Ctrl+O loads one or more `.json` files, each in a new tab. Picking a built-in sample also opens a new tab.
 - **Save**: the Save button or Ctrl+S writes the current tab's JSON. In Edge and Chrome it saves back to the opened file (or asks where to save a new one); in other browsers it downloads the file.
 - **Resize the panes**: drag the divider between the JSON editor and the waveform. Double-click it to reset.
-- **Zoom**: use the slider or the − / + buttons, or hold Ctrl and scroll over the waveform.
+- **Stack the panes**: the Stack panes / Side by side button puts the JSON editor above the waveform instead of beside it. Each layout remembers its own divider position.
+- **Zoom**: use the slider or the − / + buttons, or hold Ctrl and scroll over the waveform. The drawing scales as a whole, and the pane scrolls when it no longer fits.
 - **Edit a wave graphically**: click any cycle to open the cycle editor.
   - Pick a state, or press its key (`1 0 p n x z = .`) while the editor is open.
   - Set a node marker (multi-character names are supported) or, on a bus cycle, its label.
