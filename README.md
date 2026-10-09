@@ -23,7 +23,13 @@ For continuous recompilation while editing code:
 sbt ~fastLinkJS
 ```
 
-### 3. Launch the Studio
+### 3. Test
+```bash
+sbt test
+```
+Runs the munit suites under Node.js.
+
+### 4. Launch the Studio
 
 You can launch the studio using any of the following methods:
 
@@ -46,7 +52,7 @@ npm start
 ```
 
 #### Option D: Direct Browser File
-You can also open [index.html](file:///c:/Users/lanfr/VM%20shared/scala-projects/wavedrom-plus/index.html) directly in any web browser.
+You can also open [index.html](index.html) directly in any web browser.
 
 ---
 
@@ -54,8 +60,15 @@ You can also open [index.html](file:///c:/Users/lanfr/VM%20shared/scala-projects
 
 ```
 wavedrom-plus/
-├── WaveDromStudio.scala   # Core Scala.js application (AST, JSON codec, SVG renderer, UI controller)
-├── build.sbt              # sbt configuration (Scala 3.3.4, Scala.js 1.18.2, scalajs-dom)
+├── src/
+│   ├── main/scala/wavedrom/studio/
+│   │   ├── Model.scala              # AST & domain model (WaveState, SignalTrack, WaveDiagram, ...)
+│   │   ├── WaveJsonCodec.scala      # WaveJSON parser & serializer
+│   │   ├── AppState.scala           # Application state & cycle editing
+│   │   ├── SvgRenderer.scala        # SVG waveform render engine
+│   │   └── WaveDromStudioApp.scala  # Scala.js entry point & UI controller
+│   └── test/scala/wavedrom/studio/  # munit suites
+├── build.sbt              # sbt configuration (Scala 3.3.4, Scala.js 1.18.2, scalajs-dom, munit)
 ├── project/
 │   ├── build.properties   # sbt version declaration (1.10.7)
 │   └── plugins.sbt        # sbt-scalajs plugin definition

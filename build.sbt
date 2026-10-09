@@ -7,12 +7,10 @@ version := "0.1.0-SNAPSHOT"
 
 scalaVersion := "3.3.4"
 
-// Include WaveDromStudio.scala in the root directory as well as src/main/scala
-Compile / unmanagedSources += baseDirectory.value / "WaveDromStudio.scala"
-
 // Include scalajs-dom for browser DOM and SVG manipulation
 libraryDependencies ++= Seq(
-  "org.scala-js" %%% "scalajs-dom" % "2.8.0"
+  "org.scala-js" %%% "scalajs-dom" % "2.8.0",
+  "org.scalameta" %%% "munit" % "1.0.4" % Test
 )
 
 // Run the main method automatically upon script load
