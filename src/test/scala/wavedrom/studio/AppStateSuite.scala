@@ -20,27 +20,39 @@ class AppStateSuite extends munit.FunSuite {
     assertEquals(waveOf(state), "01")
   }
 
-  test("updateCycleState changes the targeted cycle") {
-    val state = stateWith("01")
-    state.updateCycleState(0, 0, WaveState.High)
-    assertEquals(waveOf(state), "11")
-  }
-
-  test("updateCycleState preserves the next cycle when it was a hold") {
+  test("applyEdit updates the diagram and keeps jsonText in sync") {
     val state = stateWith("0....")
-    state.updateCycleState(0, 1, WaveState.High)
+    val returned = state.applyEdit(0, WaveEditor.setCycle(_, 1, '1'))
     assertEquals(waveOf(state), "010..")
-  }
-
-  test("updateCycleState keeps jsonText in sync with the diagram") {
-    val state = stateWith("0....")
-    val returned = state.updateCycleState(0, 1, WaveState.High)
     assertEquals(returned, Some(state.jsonText))
     assertEquals(WaveJsonCodec.parse(state.jsonText), Right(state.diagram.get))
   }
 
-  test("updateCycleState does nothing without a diagram") {
-    val state = new AppState()
-    assertEquals(state.updateCycleState(0, 0, WaveState.High), None)
+  test("applyEdit ignores an edit that changes nothing") {
+    val state = stateWith("01")
+    val before = state.jsonText
+    assertEquals(state.applyEdit(0, WaveEditor.setCycle(_, 0, '0')), None)
+    assertEquals(state.jsonText, before)
+    assert(!state.canUndo)
+  }
+
+  test("applyEdit does nothing without a diagram or for an unknown signal") {
+    assertEquals(new AppState().applyEdit(0, identity), None)
+    assertEquals(stateWith("01").applyEdit(5, WaveEditor.setCycle(_, 0, '1')), None)
+  }
+
+  test("undo restores the text from before each edit") {
+    val state = stateWith("01")
+    val original = state.jsonText
+    state.applyEdit(0, WaveEditor.setCycle(_, 0, '1'))
+    val afterFirst = state.jsonText
+    state.applyEdit(0, WaveEditor.setCycle(_, 1, 'x'))
+    assertEquals(waveOf(state), "1x")
+
+    assertEquals(state.undo(), Some(afterFirst))
+    assertEquals(waveOf(state), "11")
+    assertEquals(state.undo(), Some(original))
+    assertEquals(waveOf(state), "01")
+    assertEquals(state.undo(), None)
   }
 }

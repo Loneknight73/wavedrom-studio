@@ -56,6 +56,21 @@ You can also open [index.html](index.html) directly in any web browser.
 
 ---
 
+## ✏️ Using the Studio
+
+- **Resize the panes**: drag the divider between the JSON editor and the waveform. Double-click it to reset.
+- **Zoom**: use the slider or the − / + buttons, or hold Ctrl and scroll over the waveform.
+- **Edit a wave graphically**: click any cycle to open the cycle editor.
+  - Pick a state, or press its key (`1 0 p n x z = .`) while the editor is open.
+  - Set a node marker (multi-character names are supported) or, on a bus cycle, its label.
+  - Insert a hold cycle after the clicked one, or delete the cycle.
+  - Click past the end of a short signal to extend it.
+- **Undo**: the Undo button, or Ctrl+Z outside the text editor, reverts graphical edits.
+
+Graphical edits are written back into the JSON without touching anything else in the document.
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -64,8 +79,11 @@ wavedrom-plus/
 │   ├── main/scala/wavedrom/studio/
 │   │   ├── Model.scala              # AST & domain model (WaveState, SignalTrack, WaveDiagram, ...)
 │   │   ├── WaveJsonCodec.scala      # WaveJSON parser & serializer
-│   │   ├── AppState.scala           # Application state & cycle editing
+│   │   ├── WaveEditor.scala         # Pure edit operations on a signal (cycles, nodes, bus labels)
+│   │   ├── AppState.scala           # Application state, edit write-back & undo
 │   │   ├── SvgRenderer.scala        # SVG waveform render engine
+│   │   ├── CyclePopover.scala       # Cycle editor popover
+│   │   ├── SplitPane.scala          # Draggable divider between the panes
 │   │   └── WaveDromStudioApp.scala  # Scala.js entry point & UI controller
 │   └── test/scala/wavedrom/studio/  # munit suites
 ├── build.sbt              # sbt configuration (Scala 3.3.4, Scala.js 1.18.2, scalajs-dom, munit)

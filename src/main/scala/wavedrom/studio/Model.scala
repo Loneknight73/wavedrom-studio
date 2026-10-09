@@ -46,6 +46,9 @@ case class SignalTrack(
     depth: Int = 0
 ) {
   def parsedStates: Vector[WaveState] = wave.map(WaveState.fromChar).toVector
+
+  // An empty `{}` entry in WaveJSON: a blank row between signals
+  def isSpacer: Boolean = name.isEmpty && wave.isEmpty
 }
 
 case class SignalGroup(
@@ -68,6 +71,15 @@ case class WaveDiagram(
     edges: Vector[String] = Vector.empty,
     head: Option[js.Dynamic] = None,
     foot: Option[js.Dynamic] = None
+)
+
+// A parsed diagram together with the JS tree it came from. signalObjs(i) is
+// the original object behind diagram.signals(i), so edits can be written back
+// without disturbing the rest of the document.
+case class WaveDocument(
+    root: js.Dynamic,
+    signalObjs: Vector[js.Dynamic],
+    diagram: WaveDiagram
 )
 
 case class NodeLocation(

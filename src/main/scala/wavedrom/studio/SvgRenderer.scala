@@ -31,7 +31,7 @@ object SvgRenderer {
 
         val sb = new StringBuilder()
         sb.append(
-          s"""<svg width="$totalWidth" height="$totalHeight" viewBox="0 0 $totalWidth $totalHeight" xmlns="http://www.w3.org/2000/svg" class="font-mono text-xs select-none">"""
+          s"""<svg width="$totalWidth" height="$totalHeight" viewBox="0 0 $totalWidth $totalHeight" xmlns="http://www.w3.org/2000/svg" class="wave-svg" font-family="'JetBrains Mono', monospace" style="user-select:none">"""
         )
 
         // Defs Section
@@ -93,6 +93,11 @@ object SvgRenderer {
         // Map for Node Coordinates
         var nodeLocations = Map.empty[String, NodeLocation]
 
+        // Click targets and node badges are collected here and emitted after
+        // all the waves, so filled wave shapes do not swallow the clicks
+        val hitsSb = new StringBuilder()
+        val nodesSb = new StringBuilder()
+
         // 3. Render Signal Tracks
         diag.signals.zipWithIndex.foreach { case (sig, sigIdx) =>
           val rowY = 35 + (sigIdx * rowH)
@@ -103,6 +108,16 @@ object SvgRenderer {
             15 + (sig.depth * 20) + (if (diag.groups.nonEmpty) 12 else 0)
 
           sb.append(s"""<g class="signal-row" data-sig-idx="$sigIdx">""")
+
+          if (!sig.isSpacer) {
+            for (c <- 0 until maxCycles) {
+              val activeClass =
+                if (state.activeCycle.contains((sigIdx, c))) " active" else ""
+              hitsSb.append(
+                s"""<rect class="cycle-hit$activeClass" data-sig="$sigIdx" data-cycle="$c" x="${labelWidth + (c * step)}" y="$rowY" width="$step" height="${rowH - 6}" fill="transparent" />"""
+              )
+            }
+          }
           sb.append(
             s"""<text x="$nameX" y="${rowY + 28}" fill="#94a3b8" font-size="12" font-weight="600" font-family="monospace">${escapeHtml(
                 sig.name
@@ -123,10 +138,8 @@ object SvgRenderer {
               val isSelected = state.selectedNodeForEdge.contains(nodeName)
               val badgeW = Math.max(18.0, nodeName.length * 6.5 + 8)
 
-              sb.append(s"""
-            <g class="cursor-pointer" onclick="window.WaveDromStudioApp.handleNodeClick('${escapeHtml(
-                  nodeName
-                )}')">
+              nodesSb.append(s"""
+            <g class="node-badge" data-node="${escapeHtml(nodeName)}">
               <rect x="${nx - badgeW / 2}" y="${ny - 7}" width="$badgeW" height="14" rx="7" fill="${
                   if (isSelected) "#f59e0b" else "#0284c7"
                 }" stroke="${
@@ -156,14 +169,6 @@ object SvgRenderer {
             val cx = labelWidth + (c * step)
             val token = states(c)
             val normToken = resolvedStates(c)
-
-            // Cycle Click Target
-            sb.append(s"""
-          <rect x="$cx" y="$rowY" width="$step" height="${rowH - 6}" fill="transparent"
-                class="cursor-pointer hover:fill-sky-500/10 transition-colors"
-                onclick="window.WaveDromStudioApp.openContextMenu(event, $sigIdx, $c)">
-          </rect>
-        """)
 
             // Vertical Transitions
             if (c > 0) {
@@ -267,9 +272,12 @@ object SvgRenderer {
           sb.append("</g>")
         }
 
+        sb.append("<g id=\"cycleHits\">").append(hitsSb.toString).append("</g>")
+        sb.append("<g id=\"nodeMarkers\">").append(nodesSb.toString).append("</g>")
+
         // 4. Render Edges / Connection Arrows
         if (diag.edges.nonEmpty) {
-          sb.append("<g id=\"edgesLayer\">")
+          sb.append("<g id=\"edgesLayer\" pointer-events=\"none\">")
           val edgePattern =
             """^([a-zA-Z0-9_]+)\s*(~>|->|<-|<->|<~>|-\|>|\|->)\s*([a-zA-Z0-9_]+)(?:\s+(.*))?$""".r
 

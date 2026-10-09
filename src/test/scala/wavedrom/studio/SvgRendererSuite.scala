@@ -52,4 +52,35 @@ class SvgRendererSuite extends munit.FunSuite {
     ], "edge": ["a->missing"] }""")
     assert(!svg.contains("marker-end="))
   }
+
+  private val twoSignals = """{ "signal": [
+    { "name": "req", "wave": "01.0", "node": ".a.." },
+    {},
+    { "name": "ack", "wave": "0.10" }
+  ] }"""
+
+  test("emits a click target per cycle for every signal except spacers") {
+    val svg = render(twoSignals)
+    // 2 signals x 8 columns (the minimum diagram width)
+    assertEquals(occurrences(svg, """class="cycle-hit""""), 16)
+    assert(svg.contains("""data-sig="2" data-cycle="7""""))
+    assert(!svg.contains("""data-sig="1""""))
+  }
+
+  test("marks nodes with data attributes instead of inline handlers") {
+    val svg = render(twoSignals)
+    assert(svg.contains("""data-node="a""""))
+    assert(!svg.contains("onclick"))
+  }
+
+  test("highlights the cycle being edited") {
+    val state = new AppState()
+    state.updateFromText(twoSignals)
+    state.activeCycle = Some((2, 3))
+    val svg = SvgRenderer.renderToString(state)
+    assert(
+      svg.contains("""class="cycle-hit active" data-sig="2" data-cycle="3"""")
+    )
+    assertEquals(occurrences(svg, "cycle-hit active"), 1)
+  }
 }

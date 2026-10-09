@@ -101,29 +101,93 @@ class WaveJsonCodecSuite extends munit.FunSuite {
     assertEquals(WaveJsonCodec.parseNodeTokens(""), Map.empty)
   }
 
-  test("serialize round-trips an ungrouped diagram") {
-    val diagram = WaveDiagram(
-      signals = Vector(
-        SignalTrack("clk", "p..."),
-        SignalTrack("req", "01.0", node = ".a.b"),
-        SignalTrack("bus", "x==x", data = Vector("D0", "D1"))
-      ),
-      edges = Vector("a~>b done")
+  test("parse treats an empty object as a spacer row") {
+    val diagram = parseOk(
+      """{ "signal": [ { "name": "a", "wave": "0" }, {}, { "name": "b", "wave": "1" } ] }"""
     )
-    assertEquals(
-      WaveJsonCodec.parse(WaveJsonCodec.serialize(diagram)),
-      Right(diagram)
-    )
+    assertEquals(diagram.signals.map(_.name), Vector("a", "", "b"))
+    assertEquals(diagram.signals.map(_.isSpacer), Vector(false, true, false))
   }
 
-  test("serialize omits empty node, data and edge") {
-    val json = WaveJsonCodec.serialize(
-      WaveDiagram(Vector(SignalTrack("clk", "p...")))
+  private val richJson = """{
+    "signal": [
+      { "name": "clk", "wave": "p...", "period": 2 },
+      {},
+      [ "Bus",
+        { "name": "addr", "wave": "x==x", "data": "A0 A1", "node": ".a.." },
+        [ "Inner", { "name": "rd", "wave": "0.1." } ]
+      ],
+      { "name": "last", "wave": "0..." }
+    ],
+    "edge": ["a~>b go"],
+    "head": { "text": "Title" },
+    "config": { "hscale": 2 }
+  }"""
+
+  private def parseDocOk(json: String): WaveDocument =
+    WaveJsonCodec.parseDocument(json) match {
+      case Right(doc) => doc
+      case Left(err)  => fail(s"expected successful parse, got: $err")
+    }
+
+  // Canonical form of a JSON text, for comparing documents structurally
+  private def canonical(value: js.Any): String = js.JSON.stringify(value)
+
+  test("patchSignal changes one signal and nothing else") {
+    val doc = parseDocOk(richJson)
+    assertEquals(doc.diagram.signals.map(_.name), Vector("clk", "", "addr", "rd", "last"))
+
+    val addr = doc.diagram.signals(2)
+    val patched = WaveJsonCodec.patchSignal(doc, 2, addr.copy(wave = "x=.x"))
+
+    val expected = js.JSON.parse(richJson)
+    expected.signal.asInstanceOf[js.Array[js.Dynamic]](2)
+      .asInstanceOf[js.Array[js.Dynamic]](1)
+      .wave = "x=.x"
+    assertEquals(canonical(js.JSON.parse(patched)), canonical(expected))
+  }
+
+  test("format keeps each signal on one line and loses nothing") {
+    val formatted = WaveJsonCodec.format(js.JSON.parse(richJson))
+    assertEquals(
+      canonical(js.JSON.parse(formatted)),
+      canonical(js.JSON.parse(richJson))
     )
-    val root = js.JSON.parse(json)
-    val sig = root.signal.asInstanceOf[js.Array[js.Dynamic]](0)
-    assertEquals(js.typeOf(sig.node), "undefined")
-    assertEquals(js.typeOf(sig.data), "undefined")
-    assertEquals(js.typeOf(root.edge), "undefined")
+    val lines = formatted.linesIterator.map(_.trim).toVector
+    assert(
+      lines.contains(
+        """{ "name": "addr", "wave": "x==x", "data": "A0 A1", "node": ".a.." },"""
+      ),
+      formatted
+    )
+    assert(lines.contains("{},"), formatted)
+    assert(lines.contains(""""head": { "text": "Title" },"""), formatted)
+    assert(lines.contains(""""a~>b go""""), formatted)
+  }
+
+  test("patchSignal removes node and data when they become empty") {
+    val doc = parseDocOk(richJson)
+    val addr = doc.diagram.signals(2)
+    val patched = WaveJsonCodec.patchSignal(
+      doc,
+      2,
+      addr.copy(node = "", data = Vector.empty)
+    )
+    val obj = js.JSON.parse(patched).signal.asInstanceOf[js.Array[js.Dynamic]](2)
+      .asInstanceOf[js.Array[js.Dynamic]](1)
+    assertEquals(js.typeOf(obj.node), "undefined")
+    assertEquals(js.typeOf(obj.data), "undefined")
+    assertEquals(obj.wave.toString, "x==x")
+  }
+
+  test("patchSignal writes changed data as an array") {
+    val doc = parseDocOk(richJson)
+    val addr = doc.diagram.signals(2)
+    val patched =
+      WaveJsonCodec.patchSignal(doc, 2, addr.copy(data = Vector("A0", "B1")))
+    assertEquals(
+      WaveJsonCodec.parse(patched).map(_.signals(2).data),
+      Right(Vector("A0", "B1"))
+    )
   }
 }

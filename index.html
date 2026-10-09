@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
+      color-scheme: dark;
       --bg-base: #090d16;
       --bg-panel: #0f172a;
       --bg-surface: #1e293b;
@@ -172,6 +173,18 @@
       border-color: #475569;
     }
 
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .btn-icon {
+      padding: 0.25rem 0.6rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
     .btn:active {
       transform: translateY(1px);
     }
@@ -235,7 +248,7 @@
     .studio-layout {
       flex: 1;
       display: grid;
-      grid-template-columns: 460px 1fr;
+      grid-template-columns: var(--editor-width, 460px) 6px minmax(0, 1fr);
       min-height: 0;
       height: calc(100vh - 120px);
     }
@@ -243,10 +256,26 @@
     /* Editor Pane */
     .editor-pane {
       background: var(--bg-panel);
-      border-right: 1px solid var(--border-bright);
       display: flex;
       flex-direction: column;
       min-height: 0;
+    }
+
+    /* Draggable divider between the panes */
+    #splitter {
+      background: var(--border-subtle);
+      cursor: col-resize;
+      touch-action: none;
+      transition: background 0.15s ease;
+    }
+
+    #splitter:hover, body.resizing #splitter {
+      background: var(--accent-cyan);
+    }
+
+    body.resizing {
+      cursor: col-resize;
+      user-select: none;
     }
 
     .pane-header {
@@ -317,52 +346,177 @@
       padding: 1rem;
     }
 
-    /* Context Menu */
-    #cycleMenu {
-      display: none;
-      position: absolute;
-      z-index: 100;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-      padding: 0.35rem;
-      min-width: 140px;
-    }
-
-    .menu-header {
-      font-size: 0.68rem;
-      font-weight: 700;
-      color: #64748b;
-      padding: 0.3rem 0.5rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border-bottom: 1px solid #1e293b;
-      margin-bottom: 0.2rem;
-    }
-
-    .menu-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.35rem 0.6rem;
-      font-size: 0.8rem;
-      color: #cbd5e1;
-      border-radius: 4px;
+    /* Interactive parts of the rendered waveform */
+    .cycle-hit {
       cursor: pointer;
-      user-select: none;
-      transition: background 0.12s ease;
     }
 
-    .menu-item:hover {
+    .cycle-hit:hover {
+      fill: rgba(56, 189, 248, 0.1);
+    }
+
+    .cycle-hit.active {
+      fill: rgba(245, 158, 11, 0.12);
+      stroke: var(--accent-amber);
+      stroke-width: 1.5;
+    }
+
+    .node-badge {
+      cursor: pointer;
+    }
+
+    /* Cycle editor popover */
+    #cyclePopover {
+      position: fixed;
+      z-index: 100;
+      width: 320px;
       background: #1e293b;
-      color: #38bdf8;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.8), 0 8px 12px -6px rgba(0, 0, 0, 0.5);
+      padding: 0.85rem;
     }
 
-    .menu-color-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
+    .pop-header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .pop-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+
+    .pop-target {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pop-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.4rem;
+    }
+
+    .pop-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      padding: 0.5rem 0.2rem;
+      background: #283548;
+      border: 1px solid #3b4a60;
+      border-radius: 6px;
+      color: #cbd5e1;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .pop-state:hover {
+      background: #334155;
+      border-color: var(--accent-cyan);
+    }
+
+    .pop-state b {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+    }
+
+    .pop-section {
+      border-top: 1px solid #334155;
+      margin-top: 0.75rem;
+      padding-top: 0.65rem;
+    }
+
+    .pop-section label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .pop-row {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .pop-row input {
+      flex: 1;
+      min-width: 0;
+      background: #0f172a;
+      color: var(--text-main);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 0.4rem 0.6rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      outline: none;
+    }
+
+    .pop-row input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .pop-set {
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0 0.8rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .pop-set:hover {
+      background: #4338ca;
+    }
+
+    .pop-actions {
+      border-top: 1px solid #334155;
+      margin-top: 0.75rem;
+      padding-top: 0.4rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pop-action {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: none;
+      border: none;
+      border-radius: 6px;
+      padding: 0.45rem 0.5rem;
+      color: var(--accent-cyan);
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .pop-action:hover {
+      background: #283548;
+    }
+
+    .pop-action span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .pop-action.danger {
+      color: #f87171;
     }
 
     /* Notation Quick Guide at bottom */
@@ -451,18 +605,21 @@
 
     <div class="toolbar-group">
       <span class="toolbar-label">Step Width (Zoom):</span>
-      <input type="range" id="zoomRange" class="zoom-slider" min="20" max="120" value="45" oninput="onZoomChange(this.value)">
+      <button class="btn btn-icon" id="zoomOutBtn" title="Zoom out">&minus;</button>
+      <input type="range" id="zoomRange" class="zoom-slider" min="15" max="250" value="45">
+      <button class="btn btn-icon" id="zoomInBtn" title="Zoom in">+</button>
       <span id="zoomValue" style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; min-width:32px;">45px</span>
     </div>
 
     <div class="toolbar-group" style="margin-left: auto;">
       <button class="btn" onclick="formatJson()" title="Format JSON">Format JSON</button>
-      <button class="btn" onclick="clearSelection()" title="Clear Edge Node Selection">Clear Node Selection</button>
+      <button class="btn" id="undoBtn" title="Undo the last graphical edit (Ctrl+Z)" disabled>Undo</button>
+      <button class="btn" id="clearSelectionBtn" title="Clear Edge Node Selection">Clear Node Selection</button>
     </div>
   </div>
 
   <!-- Studio Split Layout -->
-  <div class="studio-layout">
+  <div class="studio-layout" id="studioLayout">
     <!-- Left: WaveJSON Editor -->
     <div class="editor-pane">
       <div class="pane-header">
@@ -491,27 +648,52 @@
       </div>
     </div>
 
+    <div id="splitter" title="Drag to resize, double-click to reset"></div>
+
     <!-- Right: SVG Diagram Viewer -->
     <div class="viewer-pane">
       <div class="pane-header">
-        <span>Waveform Canvas (Click cycles to edit, click node badges to inspect connections)</span>
+        <span>Waveform Canvas (Click a cycle to edit it, Ctrl + wheel to zoom)</span>
         <span id="canvasStats" style="font-size: 0.7rem; color: var(--text-dim);">SVG Engine Active</span>
       </div>
       <div id="svgContainer"></div>
     </div>
   </div>
 
-  <!-- Interactive Context Menu for Cycle State -->
-  <div id="cycleMenu">
-    <div class="menu-header">Change Cycle State</div>
-    <div class="menu-item" onclick="selectState('1')"><span class="menu-color-dot" style="background:#10b981"></span> High (1)</div>
-    <div class="menu-item" onclick="selectState('0')"><span class="menu-color-dot" style="background:#10b981"></span> Low (0)</div>
-    <div class="menu-item" onclick="selectState('p')"><span class="menu-color-dot" style="background:#818cf8"></span> Pos Clock (p)</div>
-    <div class="menu-item" onclick="selectState('n')"><span class="menu-color-dot" style="background:#818cf8"></span> Neg Clock (n)</div>
-    <div class="menu-item" onclick="selectState('=')"><span class="menu-color-dot" style="background:#38bdf8"></span> Data Bus (=)</div>
-    <div class="menu-item" onclick="selectState('.')"><span class="menu-color-dot" style="background:#94a3b8"></span> Hold (.)</div>
-    <div class="menu-item" onclick="selectState('z')"><span class="menu-color-dot" style="background:#f59e0b"></span> High-Z (z)</div>
-    <div class="menu-item" onclick="selectState('x')"><span class="menu-color-dot" style="background:#ef4444"></span> Undefined (x)</div>
+  <!-- Cycle editor popover, driven by CyclePopover.scala -->
+  <div id="cyclePopover" hidden>
+    <div class="pop-header">
+      <span class="pop-title">Change Cycle State</span>
+      <span class="pop-target" id="popTarget"></span>
+    </div>
+    <div class="pop-grid">
+      <button class="pop-state" data-state="1"><b style="color:#10b981">1</b>High</button>
+      <button class="pop-state" data-state="0"><b style="color:#10b981">0</b>Low</button>
+      <button class="pop-state" data-state="p"><b style="color:#818cf8">p</b>Pos Clock</button>
+      <button class="pop-state" data-state="n"><b style="color:#818cf8">n</b>Neg Clock</button>
+      <button class="pop-state" data-state="x"><b style="color:#ef4444">x</b>Undef</button>
+      <button class="pop-state" data-state="z"><b style="color:#f59e0b">z</b>High-Z</button>
+      <button class="pop-state" data-state="="><b style="color:#38bdf8">=</b>Bus</button>
+      <button class="pop-state" data-state="."><b style="color:#94a3b8">.</b>Hold</button>
+    </div>
+    <div class="pop-section">
+      <label for="popNodeInput">Node Marker (multi-char supported):</label>
+      <form class="pop-row" id="popNodeForm">
+        <input id="popNodeInput" autocomplete="off" spellcheck="false" placeholder="e.g. req_start, a1">
+        <button class="pop-set" type="submit">Set</button>
+      </form>
+    </div>
+    <div class="pop-section" id="popBusSection" hidden>
+      <label for="popBusInput">Bus Label:</label>
+      <form class="pop-row" id="popBusForm">
+        <input id="popBusInput" autocomplete="off" spellcheck="false" placeholder="e.g. 0x4000_0000">
+        <button class="pop-set" type="submit">Set</button>
+      </form>
+    </div>
+    <div class="pop-actions">
+      <button class="pop-action" id="popInsert">Insert Hold Cycle After <span>+1</span></button>
+      <button class="pop-action danger" id="popDelete">Delete Cycle <span>&minus;1</span></button>
+    </div>
   </div>
 
   <!-- Bottom Notation Quick Guide -->
@@ -600,13 +782,6 @@
       }
     }
 
-    function onZoomChange(val) {
-      document.getElementById("zoomValue").textContent = val + "px";
-      if (window.WaveDromStudioApp && window.WaveDromStudioApp.setStepWidth) {
-        window.WaveDromStudioApp.setStepWidth(parseFloat(val));
-      }
-    }
-
     function formatJson() {
       const editor = document.getElementById("jsonEditor");
       try {
@@ -616,18 +791,6 @@
         showToast("JSON Formatted");
       } catch (e) {
         showToast("JSON parse error: " + e.message);
-      }
-    }
-
-    function clearSelection() {
-      if (window.WaveDromStudioApp && window.WaveDromStudioApp.resetSelection) {
-        window.WaveDromStudioApp.resetSelection();
-      }
-    }
-
-    function selectState(stateChar) {
-      if (window.WaveDromStudioApp && window.WaveDromStudioApp.setCycleState) {
-        window.WaveDromStudioApp.setCycleState(stateChar);
       }
     }
 

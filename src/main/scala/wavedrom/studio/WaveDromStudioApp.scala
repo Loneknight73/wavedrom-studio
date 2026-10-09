@@ -2,139 +2,194 @@ package wavedrom.studio
 
 import org.scalajs.dom
 import org.scalajs.dom.html
-import scala.scalajs.js.annotation.*
 
-@JSExportTopLevel("WaveDromStudioApp")
+object Dom {
+  def byId[T <: dom.Element](id: String): T =
+    dom.document.getElementById(id).asInstanceOf[T]
+}
+
+// ============================================================================
+// MAIN SCALA.JS ENTRY POINT & UI CONTROLLER
+// ============================================================================
+
 object WaveDromStudioApp {
+  import Dom.byId
+
+  private val minStepWidth = 15.0
+  private val maxStepWidth = 250.0
+  private val stateKeys = "10pnxz=."
 
   private val state = new AppState()
 
-  def main(args: Array[String]): Unit = main()
+  private lazy val jsonEditor = byId[html.TextArea]("jsonEditor")
+  private lazy val svgContainer = byId[html.Div]("svgContainer")
+  private lazy val statusIndicator = byId[html.Element]("statusIndicator")
+  private lazy val zoomRange = byId[html.Input]("zoomRange")
+  private lazy val zoomValue = byId[html.Element]("zoomValue")
+  private lazy val undoBtn = byId[html.Button]("undoBtn")
+  private lazy val popover = new CyclePopover(applyEdit)
 
-  @JSExport
-  def main(): Unit = {
-    def init(): Unit = {
-      val jsonEditor =
-        dom.document.getElementById("jsonEditor").asInstanceOf[html.TextArea]
-      val svgContainer =
-        dom.document.getElementById("svgContainer").asInstanceOf[html.Div]
-      val statusIndicator = dom.document
-        .getElementById("statusIndicator")
-        .asInstanceOf[html.Element]
+  def main(args: Array[String]): Unit = {
+    if (dom.document.readyState != "loading") init()
+    else dom.window.addEventListener("DOMContentLoaded", (_: dom.Event) => init())
+  }
 
-      def updateView(): Unit = {
-        if (jsonEditor != null && svgContainer != null) {
-          state.updateFromText(jsonEditor.value) match {
-            case Right(_) =>
-              if (statusIndicator != null) {
-                statusIndicator.textContent = "Syntax OK"
-                statusIndicator.className = "status-badge status-ok"
-              }
-              SvgRenderer.render(state, svgContainer)
-            case Left(err) =>
-              if (statusIndicator != null) {
-                statusIndicator.textContent = err
-                statusIndicator.className = "status-badge status-error"
-              }
-          }
-        }
+  private def init(): Unit = {
+    SplitPane.init(byId[html.Element]("studioLayout"), byId[html.Element]("splitter"))
+
+    jsonEditor.addEventListener("input", (_: dom.Event) => loadFromEditor())
+
+    svgContainer.addEventListener("click", onSvgClick _)
+    svgContainer.addEventListener("wheel", onSvgWheel _)
+    dom.document.addEventListener("click", onDocumentClick _)
+    dom.document.addEventListener("keydown", onKeyDown _)
+
+    zoomRange.addEventListener(
+      "input",
+      (_: dom.Event) => zoomRange.value.toDoubleOption.foreach(setStepWidth)
+    )
+    byId[html.Button]("zoomOutBtn").addEventListener(
+      "click",
+      (_: dom.Event) => setStepWidth(state.stepWidth / 1.25)
+    )
+    byId[html.Button]("zoomInBtn").addEventListener(
+      "click",
+      (_: dom.Event) => setStepWidth(state.stepWidth * 1.25)
+    )
+    undoBtn.addEventListener("click", (_: dom.Event) => undo())
+    byId[html.Button]("clearSelectionBtn").addEventListener(
+      "click",
+      (_: dom.Event) => {
+        state.selectedNodeForEdge = None
+        render()
       }
+    )
 
-      if (jsonEditor != null && svgContainer != null) {
-        updateView()
-        jsonEditor.addEventListener("input", (_: dom.Event) => updateView())
+    setStepWidth(state.stepWidth)
+    loadFromEditor()
+  }
 
-        dom.document.addEventListener(
-          "click",
-          (e: dom.MouseEvent) => {
-            val menu = dom.document
-              .getElementById("cycleMenu")
-              .asInstanceOf[html.Element]
-            if (menu != null && menu.style.display != "none") {
-              val target = e.target.asInstanceOf[dom.Node]
-              if (!menu.contains(target)) {
-                menu.style.display = "none"
-              }
-            }
-          }
-        )
-      }
-    }
+  // --- Rendering -----------------------------------------------------------
 
-    if (dom.document.readyState != "loading") {
-      init()
-    } else {
-      dom.window.addEventListener("DOMContentLoaded", (_: dom.Event) => init())
+  private def render(): Unit = {
+    SvgRenderer.render(state, svgContainer)
+    undoBtn.disabled = !state.canUndo
+  }
+
+  private def loadFromEditor(): Unit = {
+    popover.hide()
+    state.activeCycle = None
+    state.updateFromText(jsonEditor.value) match {
+      case Right(_) =>
+        statusIndicator.textContent = "Syntax OK"
+        statusIndicator.className = "status-badge status-ok"
+        render()
+      case Left(err) =>
+        statusIndicator.textContent = err
+        statusIndicator.className = "status-badge status-error"
+        undoBtn.disabled = !state.canUndo
     }
   }
 
-  @JSExport
-  def handleNodeClick(nodeName: String): Unit = {
-    if (state.selectedNodeForEdge.contains(nodeName)) {
-      state.selectedNodeForEdge = None
-    } else {
-      state.selectedNodeForEdge = Some(nodeName)
-    }
-    val svgContainer =
-      dom.document.getElementById("svgContainer").asInstanceOf[html.Div]
-    if (svgContainer != null) SvgRenderer.render(state, svgContainer)
+  // --- Graphical editing ---------------------------------------------------
+
+  private def applyEdit(edit: SignalTrack => SignalTrack): Unit = {
+    for {
+      (sigIdx, _) <- state.activeCycle
+      newJson <- state.applyEdit(sigIdx, edit)
+    } jsonEditor.value = newJson
+    loadFromEditor()
   }
 
-  @JSExport
-  def openContextMenu(
-      event: dom.MouseEvent,
+  private def undo(): Unit = {
+    state.undo().foreach(previousJson => jsonEditor.value = previousJson)
+    loadFromEditor()
+  }
+
+  private def closePopover(): Unit = {
+    popover.hide()
+    if (state.activeCycle.nonEmpty) {
+      state.activeCycle = None
+      render()
+    }
+  }
+
+  private def openPopover(
       sigIdx: Int,
-      cycleIdx: Int
+      cycleIdx: Int,
+      clientX: Double,
+      clientY: Double
   ): Unit = {
-    event.preventDefault()
-    event.stopPropagation()
-    state.activeMenuSigIdx = sigIdx
-    state.activeMenuCycleIdx = cycleIdx
-    val menu =
-      dom.document.getElementById("cycleMenu").asInstanceOf[html.Element]
-    if (menu != null) {
-      menu.style.display = "block"
-      menu.style.left = s"${event.pageX}px"
-      menu.style.top = s"${event.pageY}px"
+    state.diagram.flatMap(_.signals.lift(sigIdx)).foreach { track =>
+      state.activeCycle = Some((sigIdx, cycleIdx))
+      render()
+      popover.show(track, cycleIdx, clientX, clientY)
     }
   }
 
-  @JSExport
-  def setCycleState(stateChar: String): Unit = {
-    if (
-      state.activeMenuSigIdx >= 0 && state.activeMenuCycleIdx >= 0 && stateChar.nonEmpty
-    ) {
-      val st = WaveState.fromChar(stateChar.charAt(0))
-      state
-        .updateCycleState(state.activeMenuSigIdx, state.activeMenuCycleIdx, st)
-        .foreach { newJson =>
-          val jsonEditor = dom.document
-            .getElementById("jsonEditor")
-            .asInstanceOf[html.TextArea]
-          val svgContainer =
-            dom.document.getElementById("svgContainer").asInstanceOf[html.Div]
-          if (jsonEditor != null) jsonEditor.value = newJson
-          if (svgContainer != null) SvgRenderer.render(state, svgContainer)
-        }
+  private def toggleNodeSelection(nodeName: String): Unit = {
+    state.selectedNodeForEdge =
+      if (state.selectedNodeForEdge.contains(nodeName)) None else Some(nodeName)
+    render()
+  }
+
+  // --- Zoom ----------------------------------------------------------------
+
+  private def setStepWidth(width: Double): Unit = {
+    state.stepWidth =
+      Math.max(minStepWidth, Math.min(maxStepWidth, width)).round.toDouble
+    zoomRange.value = state.stepWidth.toInt.toString
+    zoomValue.textContent = s"${state.stepWidth.toInt}px"
+    render()
+  }
+
+  // --- Event handlers ------------------------------------------------------
+
+  private def onSvgClick(e: dom.MouseEvent): Unit = {
+    val target = e.target.asInstanceOf[dom.Element]
+    val nodeBadge = target.closest("[data-node]")
+    val cycleHit = target.closest(".cycle-hit")
+    if (nodeBadge != null) toggleNodeSelection(nodeBadge.getAttribute("data-node"))
+    else if (cycleHit != null)
+      openPopover(
+        cycleHit.getAttribute("data-sig").toInt,
+        cycleHit.getAttribute("data-cycle").toInt,
+        e.clientX,
+        e.clientY
+      )
+  }
+
+  private def onSvgWheel(e: dom.WheelEvent): Unit = {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      setStepWidth(state.stepWidth * (if (e.deltaY < 0) 1.1 else 1 / 1.1))
     }
-    val menu =
-      dom.document.getElementById("cycleMenu").asInstanceOf[html.Element]
-    if (menu != null) menu.style.display = "none"
   }
 
-  @JSExport
-  def setStepWidth(width: Double): Unit = {
-    state.stepWidth = Math.max(15.0, Math.min(250.0, width))
-    val svgContainer =
-      dom.document.getElementById("svgContainer").asInstanceOf[html.Div]
-    if (svgContainer != null) SvgRenderer.render(state, svgContainer)
+  private def onDocumentClick(e: dom.MouseEvent): Unit = {
+    if (popover.isOpen) {
+      val target = e.target.asInstanceOf[dom.Element]
+      // A click on a cycle has just (re)opened the popover; leave it alone
+      if (!popover.contains(target) && target.closest(".cycle-hit") == null)
+        closePopover()
+    }
   }
 
-  @JSExport
-  def resetSelection(): Unit = {
-    state.selectedNodeForEdge = None
-    val svgContainer =
-      dom.document.getElementById("svgContainer").asInstanceOf[html.Div]
-    if (svgContainer != null) SvgRenderer.render(state, svgContainer)
+  private def onKeyDown(e: dom.KeyboardEvent): Unit = {
+    val inField = e.target match {
+      case _: html.Input | _: html.TextArea | _: html.Select => true
+      case _                                                 => false
+    }
+    val modifier = e.ctrlKey || e.metaKey || e.altKey
+    val key = e.key.toLowerCase
+
+    if (key == "escape" && popover.isOpen) closePopover()
+    else if (!inField && !modifier && popover.isOpen && key.length == 1 && stateKeys.contains(key)) {
+      e.preventDefault()
+      popover.setState(key.charAt(0))
+    } else if (!inField && (e.ctrlKey || e.metaKey) && key == "z") {
+      e.preventDefault()
+      undo()
+    }
   }
 }

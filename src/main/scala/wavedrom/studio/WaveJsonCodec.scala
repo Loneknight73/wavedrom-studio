@@ -5,12 +5,16 @@ import scala.util.control.NonFatal
 
 object WaveJsonCodec {
 
-  def parse(jsonStr: String): Either[String, WaveDiagram] = {
+  def parse(jsonStr: String): Either[String, WaveDiagram] =
+    parseDocument(jsonStr).map(_.diagram)
+
+  def parseDocument(jsonStr: String): Either[String, WaveDocument] = {
     try {
       val parsed = js.JSON.parse(jsonStr)
       val signalArr = parsed.signal.asInstanceOf[js.Array[js.Any]]
 
       var flatSignals = Vector.empty[SignalTrack]
+      var signalObjs = Vector.empty[js.Dynamic]
       var groups = Vector.empty[SignalGroup]
 
       def processSignalList(list: js.Array[js.Any], depth: Int): Unit = {
@@ -29,8 +33,11 @@ object WaveJsonCodec {
             groups = groups :+ SignalGroup(groupName, depth, startIdx, endIdx)
           } else if (js.typeOf(item) == "object" && item != null) {
             val obj = item.asInstanceOf[js.Dynamic]
+            val isSpacer =
+              js.typeOf(obj.name) == "undefined" && js.typeOf(obj.wave) == "undefined"
             val name =
               if (js.typeOf(obj.name) != "undefined") obj.name.toString
+              else if (isSpacer) ""
               else s"sig_${flatSignals.length}"
             val wave =
               if (js.typeOf(obj.wave) != "undefined") obj.wave.toString else ""
@@ -51,6 +58,7 @@ object WaveJsonCodec {
 
             flatSignals =
               flatSignals :+ SignalTrack(name, wave, node, dataVec, depth)
+            signalObjs = signalObjs :+ obj
           }
         }
       }
@@ -65,7 +73,9 @@ object WaveJsonCodec {
           parsed.edge.asInstanceOf[js.Array[js.Any]].map(_.toString).toVector
       }
 
-      Right(WaveDiagram(flatSignals, groups, edges))
+      Right(
+        WaveDocument(parsed, signalObjs, WaveDiagram(flatSignals, groups, edges))
+      )
     } catch {
       case NonFatal(ex) => Left(s"JSON Syntax Error: ${ex.getMessage}")
     }
@@ -98,55 +108,70 @@ object WaveJsonCodec {
 
   }
 
-  def serialize(diagram: WaveDiagram): String = {
-    val rootObj = js.Dynamic.literal()
+  // Writes the changed fields of one signal back into the document's JS tree
+  // and returns the whole document as JSON. Everything else is left untouched.
+  def patchSignal(doc: WaveDocument, sigIdx: Int, updated: SignalTrack): String = {
+    val original = doc.diagram.signals(sigIdx)
+    val obj = doc.signalObjs(sigIdx)
 
-// Reconstruct signal hierarchy
-    val signalList = js.Array[js.Any]()
-
-    if (diagram.groups.isEmpty) {
-      diagram.signals.foreach { sig =>
-        signalList.push(signalToJs(sig))
-      }
-    } else {
-      val processedSigIndices = collection.mutable.Set[Int]()
-
-      diagram.groups.filter(_.depth == 0).foreach { g =>
-        val groupArr = js.Array[js.Any](g.name)
-        for (i <- g.startSigIdx to g.endSigIdx if i < diagram.signals.length) {
-          groupArr.push(signalToJs(diagram.signals(i)))
-          processedSigIndices.add(i)
-        }
-        signalList.push(groupArr)
-      }
-
-      diagram.signals.zipWithIndex.foreach { case (sig, idx) =>
-        if (!processedSigIndices.contains(idx)) {
-          signalList.push(signalToJs(sig))
-        }
-      }
+    if (updated.wave != original.wave) obj.wave = updated.wave
+    if (updated.node != original.node) {
+      if (updated.node.nonEmpty) obj.node = updated.node
+      else js.special.delete(obj, "node")
+    }
+    if (updated.data != original.data) {
+      if (updated.data.nonEmpty) {
+        val dataArr = js.Array[js.Any]()
+        updated.data.foreach(d => dataArr.push(d))
+        obj.data = dataArr
+      } else js.special.delete(obj, "data")
     }
 
-    rootObj.signal = signalList
-
-    if (diagram.edges.nonEmpty) {
-      val edgeArr = js.Array[js.Any]()
-      diagram.edges.foreach(e => edgeArr.push(e))
-      rootObj.edge = edgeArr
-    }
-
-    js.JSON.stringify(rootObj, null, 2)
-
+    format(doc.root)
   }
 
-  private def signalToJs(sig: SignalTrack): js.Dynamic = {
-    val obj = js.Dynamic.literal(name = sig.name, wave = sig.wave)
-    if (sig.node.nonEmpty) obj.node = sig.node
-    if (sig.data.nonEmpty) {
-      val dataArr = js.Array[js.Any]()
-      sig.data.foreach(d => dataArr.push(d))
-      obj.data = dataArr
+  // Pretty-prints in the usual WaveJSON layout: objects that hold only plain
+  // values (a signal, `head`, `config`...) stay on one line.
+  def format(value: js.Any): String = formatValue(value, 0)
+
+  private def isPrimitive(value: js.Any): Boolean =
+    value == null || js.typeOf(value) != "object"
+
+  private def isFlat(value: js.Any): Boolean =
+    isPrimitive(value) || (js.Array.isArray(value) &&
+      value.asInstanceOf[js.Array[js.Any]].forall(isPrimitive))
+
+  private def formatInline(value: js.Any): String =
+    if (js.Array.isArray(value))
+      value.asInstanceOf[js.Array[js.Any]].map(formatInline).mkString("[", ", ", "]")
+    else js.JSON.stringify(value)
+
+  private def formatValue(value: js.Any, depth: Int): String = {
+    val pad = "  " * (depth + 1)
+    val closePad = "  " * depth
+
+    if (isPrimitive(value)) js.JSON.stringify(value)
+    else if (js.Array.isArray(value)) {
+      val items = value.asInstanceOf[js.Array[js.Any]]
+      if (items.isEmpty) "[]"
+      else
+        items
+          .map(item => pad + formatValue(item, depth + 1))
+          .mkString("[\n", ",\n", s"\n$closePad]")
+    } else {
+      val fields = value.asInstanceOf[js.Dictionary[js.Any]]
+      val keys = js.Object.keys(value.asInstanceOf[js.Object])
+      if (keys.isEmpty) "{}"
+      else if (keys.forall(k => isFlat(fields(k))))
+        keys
+          .map(k => s"${js.JSON.stringify(k)}: ${formatInline(fields(k))}")
+          .mkString("{ ", ", ", " }")
+      else
+        keys
+          .map(k =>
+            s"$pad${js.JSON.stringify(k)}: ${formatValue(fields(k), depth + 1)}"
+          )
+          .mkString("{\n", ",\n", s"\n$closePad}")
     }
-    obj
   }
 }
