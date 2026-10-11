@@ -1,5 +1,5 @@
 {
-  "name": "wavedrom-plus",
+  "name": "wavedrom-studio",
   "version": "0.0.1",
   "description": "Interactive WaveDrom timing diagram studio powered by Scala 3 & Scala.js",
   "scripts": {

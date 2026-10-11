@@ -16,7 +16,7 @@ To compile and link the Scala.js project:
 ```bash
 sbt fastLinkJS
 ```
-This generates `target/scala-3.3.4/wavedrom-plus-fastopt/main.js`.
+This generates `target/scala-3.3.4/wavedrom-studio-fastopt/main.js`.
 
 For continuous recompilation while editing code:
 ```bash
@@ -33,7 +33,7 @@ Runs the munit suites under Node.js.
 ```bash
 sbt dist
 ```
-Builds the optimised script and writes the two files a release needs, `index.html` and `main.js`, to `target/dist/wavedrom-plus-<version>/`, with a zip of that folder next to it. The folder runs opened straight from disk or served by any static web server; it needs no sbt, Node.js or internet access.
+Builds the optimised script and writes the two files a release needs, `index.html` and `main.js`, to `target/dist/wavedrom-studio-<version>/`, with a zip of that folder next to it. The folder runs opened straight from disk or served by any static web server; it needs no sbt, Node.js or internet access.
 
 ### 5. Launch the Studio
 
@@ -87,7 +87,7 @@ Graphical edits are written back into the JSON without touching anything else in
 ## 📁 Project Structure
 
 ```
-wavedrom-plus/
+wavedrom-studio/
 ├── src/
 │   ├── main/scala/wavedrom/studio/
 │   │   ├── Model.scala              # AST & domain model (WaveState, SignalTrack, WaveDiagram, ...)

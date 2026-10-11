@@ -2,7 +2,7 @@ enablePlugins(ScalaJSPlugin)
 
 import scala.util.control.NonFatal
 
-name := "wavedrom-plus"
+name := "wavedrom-studio"
 version := "0.0.1"
 
 scalaVersion := "3.3.4"
@@ -17,7 +17,7 @@ libraryDependencies ++= Seq(
 scalaJSUseMainModuleInitializer := true
 
 // FastLink / FullLink output configuration
-// Produces target/scala-3.3.4/wavedrom-plus-fastopt/main.js
+// Produces target/scala-3.3.4/wavedrom-studio-fastopt/main.js
 scalaJSLinkerConfig ~= {
   _.withModuleKind(ModuleKind.NoModule)
    .withSourceMap(true)
@@ -44,7 +44,7 @@ launch := {
 }
 
 // The bare minimum needed to run the studio: index.html plus the optimised
-// script, in target/dist/wavedrom-plus-<version>/ and zipped next to it.
+// script, in target/dist/wavedrom-studio-<version>/ and zipped next to it.
 // The folder works opened straight from disk or from any static web server.
 lazy val dist = taskKey[File]("Package index.html and the optimised script for release")
 dist := {
