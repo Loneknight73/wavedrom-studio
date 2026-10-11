@@ -51,6 +51,8 @@ final class CyclePopover(onEdit: (SignalTrack => SignalTrack) => Unit) {
       else if (signalColorBtn != null)
         setSignalColor(Some(signalColorBtn.getAttribute("data-signal-color")))
       else if (target.closest("#popSignalColorClear") != null) setSignalColor(None)
+      else if (target.closest("#popDoubleEdge") != null)
+        onEdit(WaveEditor.doubleEdgeClockFrom(_, cycle))
       else if (target.closest("#popInsert") != null)
         onEdit(WaveEditor.insertHoldAfter(_, cycle))
       else if (target.closest("#popDelete") != null)

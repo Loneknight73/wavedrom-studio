@@ -215,4 +215,21 @@ class WaveEditorSuite extends munit.FunSuite {
     assertEquals(WaveEditor.nodeAt(named, 1), "req_start")
     assertEquals(WaveEditor.setNode(named, 1, "").node, "")
   }
+
+  test("doubleEdgeClockFrom fills the rest of the signal with alternating H and L") {
+    val low = SignalTrack("ck", "0.......")
+    assertEquals(WaveEditor.doubleEdgeClockFrom(low, 2).wave, "0.HLHLHL")
+    // After a high level it starts low, so the first cycle opens with an edge
+    val high = SignalTrack("ck", "1...")
+    assertEquals(WaveEditor.doubleEdgeClockFrom(high, 1).wave, "1LHL")
+    // Past the end of a short signal it adds the one clicked cycle
+    assertEquals(WaveEditor.doubleEdgeClockFrom(SignalTrack("ck", "0"), 3).wave, "0..H")
+  }
+
+  test("doubleEdgeClockFrom drops the labels of the buses it replaces") {
+    val bus = SignalTrack("d", "=.==", data = Vector("A", "B", "C"))
+    val clocked = WaveEditor.doubleEdgeClockFrom(bus, 2)
+    assertEquals(clocked.wave, "=.HL")
+    assertEquals(clocked.data, Vector("A"))
+  }
 }

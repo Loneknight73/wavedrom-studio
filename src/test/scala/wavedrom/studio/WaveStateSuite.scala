@@ -6,10 +6,10 @@ class WaveStateSuite extends munit.FunSuite {
     val expected = Map(
       '1' -> WaveState.High,
       'h' -> WaveState.High,
-      'H' -> WaveState.High,
+      'H' -> WaveState.HighArrow,
       '0' -> WaveState.Low,
       'l' -> WaveState.Low,
-      'L' -> WaveState.Low,
+      'L' -> WaveState.LowArrow,
       'p' -> WaveState.PosClock,
       'P' -> WaveState.PosClockArrow,
       'n' -> WaveState.NegClock,
@@ -43,7 +43,7 @@ class WaveStateSuite extends munit.FunSuite {
   }
 
   test("arrow clocks keep their case") {
-    "PN".foreach { c =>
+    "PNHL".foreach { c =>
       assertEquals(WaveState.toChar(WaveState.fromChar(c)), c)
     }
   }

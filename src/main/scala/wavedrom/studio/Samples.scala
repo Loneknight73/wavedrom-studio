@@ -62,6 +62,7 @@ object Samples {
       """{
   "signal": [
     { "name": "CK_t",  "wave": "p......" },
+    { "name": "CK_2x", "wave": "HLHLHLH" },
     { "name": "DQS_t", "wave": "z.p.p.z" },
     { "name": "DQ",    "wave": "z.====z", "data": ["Q0", "Q1", "Q2", "Q3"] }
   ]

@@ -56,6 +56,24 @@ object WaveEditor {
     track.copy(wave = wave, data = data)
   }
 
+  // Turns the signal, from `cycle` to its end, into a clock active on both
+  // edges: `HLHL...`, one grid cycle per half period. It starts on the level
+  // opposite to the one before it, so its first cycle opens with an edge.
+  def doubleEdgeClockFrom(track: SignalTrack, cycle: Int): SignalTrack = {
+    val end = Math.max(track.wave.length, cycle + 1)
+    val before = effectiveChar(track.wave, cycle - 1).map(WaveState.fromChar)
+    val startsLow = before.exists {
+      case WaveState.High | WaveState.HighArrow | WaveState.NegClock |
+          WaveState.NegClockArrow =>
+        true
+      case _ => false
+    }
+    (cycle until end).foldLeft(track) { (t, c) =>
+      val high = ((c - cycle) % 2 == 0) != startsLow
+      setCycle(t, c, if (high) 'H' else 'L')
+    }
+  }
+
   def insertHoldAfter(track: SignalTrack, cycle: Int): SignalTrack = {
     val wave = track.wave.padTo(cycle + 1, '.').patch(cycle + 1, ".", 0)
     val slots = nodeSlots(track.node)

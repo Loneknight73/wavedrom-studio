@@ -202,8 +202,10 @@ object SvgRenderer {
           val resolvedStates = collection.mutable.ArrayBuffer[WaveState]()
           var curState: WaveState = WaveState.Low
 
+          // `H` and `L` are resolved to their plain levels; the arrow is added
+          // on the cycle that carries the token itself
           states.foreach { st =>
-            if (st != WaveState.Hold) curState = st
+            if (st != WaveState.Hold) curState = WaveState.level(st)
             resolvedStates.append(curState)
           }
 
@@ -241,6 +243,12 @@ object SvgRenderer {
                   } else if (yFrom != yTo) {
                     lead = slant
                     sb.append(stroke(s"M $cx $yFrom L ${cx + lead} $yTo"))
+                    // `H` and `L` mark a full-height edge as an active one
+                    val fullEdge = yFrom == yHigh || yFrom == yLow
+                    if (fullEdge && token == WaveState.HighArrow)
+                      sb.append(clockArrow(cx + lead / 2, yMid, up = true, ink))
+                    else if (fullEdge && token == WaveState.LowArrow)
+                      sb.append(clockArrow(cx + lead / 2, yMid, up = false, ink))
                   }
                 case WaveState.DataBus | WaveState.ColoredBus(_) =>
                   // A bus starts from its pinch point on the boundary, so
@@ -359,7 +367,7 @@ object SvgRenderer {
                   }
                   busDataCounter += 1
                 }
-              case WaveState.Hold => // Handled via resolved state
+              case _ => // Hold and arrowed levels are resolved above
             }
           }
 

@@ -292,4 +292,22 @@ class SvgRendererSuite extends munit.FunSuite {
       .findFirstMatchIn(svg).get.group(1).toDouble
     assert(nameX - name.length * 6.5 >= 0, nameX)
   }
+
+  test("H and L put an arrow on each edge of a double-edge clock") {
+    val arrows = render("""{ "signal": [ { "name": "ck", "wave": "HLHLHL" } ] }""")
+    // No edge leads into the first cycle, so five edges carry an arrow
+    assertEquals(occurrences(arrows, "clock-arrow"), 5)
+
+    val plain = render("""{ "signal": [ { "name": "ck", "wave": "101010" } ] }""")
+    assertEquals(occurrences(plain, "clock-arrow"), 0)
+    // Apart from the arrows the two are drawn alike
+    val arrow = """<path class="clock-arrow"[^>]*/>""".r
+    def shapes(svg: String): String = arrow.replaceAllIn(svg.split("<g id=\"cycleHits\"")(0), "")
+    assertEquals(shapes(arrows), shapes(plain))
+  }
+
+  test("an arrowed level without an edge, or held, has no arrow") {
+    assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "1H.." } ] }"""), "clock-arrow"), 0)
+    assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "0H..L." } ] }"""), "clock-arrow"), 2)
+  }
 }

@@ -350,6 +350,10 @@ object WaveDromStudioApp {
       // Shift+P and Shift+N give the clocks that carry an arrow
       val arrowClock = e.shiftKey && (key == "p" || key == "n")
       popover.setState(if (arrowClock) key.charAt(0).toUpper else key.charAt(0))
+    } else if (!inField && !modifier && popover.isOpen && e.shiftKey && (key == "h" || key == "l")) {
+      // Shift+H and Shift+L give the levels that carry an arrow
+      e.preventDefault()
+      popover.setState(key.charAt(0).toUpper)
     } else if (!inField && !modifier && popover.isOpen && key.length == 1 && busColorKeys.contains(key)) {
       e.preventDefault()
       popover.setBusColor(key.charAt(0))

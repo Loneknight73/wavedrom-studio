@@ -4,8 +4,10 @@ import scala.scalajs.js
 
 sealed trait WaveState
 object WaveState {
-  case object High extends WaveState // 1, h, H
-  case object Low extends WaveState // 0, l, L
+  case object High extends WaveState // 1, h
+  case object Low extends WaveState // 0, l
+  case object HighArrow extends WaveState // H: high, arrow on the rising edge
+  case object LowArrow extends WaveState // L: low, arrow on the falling edge
   case object PosClock extends WaveState // p
   case object NegClock extends WaveState // n
   case object PosClockArrow extends WaveState // P: arrow on the rising edge
@@ -17,10 +19,13 @@ object WaveState {
   final case class ColoredBus(digit: Int) extends WaveState
   case object Hold extends WaveState // .
 
-  // Clocks are case sensitive: the upper-case forms carry an arrow
+  // Clocks and levels are case sensitive: the upper-case forms carry an
+  // arrow. `HLHL...` is a clock active on both edges, half a period per cycle.
   def fromChar(c: Char): WaveState = c match {
     case 'P' => PosClockArrow
     case 'N' => NegClockArrow
+    case 'H' => HighArrow
+    case 'L' => LowArrow
     case _   => fromLowerChar(c.toLower)
   }
 
@@ -37,6 +42,13 @@ object WaveState {
     case _              => Low
   }
 
+  // The plain level an arrowed level is drawn as
+  def level(state: WaveState): WaveState = state match {
+    case HighArrow => High
+    case LowArrow  => Low
+    case other     => other
+  }
+
   def isBus(state: WaveState): Boolean = state match {
     case DataBus | ColoredBus(_) => true
     case _                       => false
@@ -48,6 +60,8 @@ object WaveState {
     case PosClock  => 'p'
     case NegClock  => 'n'
     case PosClockArrow => 'P'
+    case HighArrow => 'H'
+    case LowArrow  => 'L'
     case NegClockArrow => 'N'
     case Undefined => 'x'
     case HighZ     => 'z'
