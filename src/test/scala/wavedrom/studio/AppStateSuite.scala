@@ -41,6 +41,28 @@ class AppStateSuite extends munit.FunSuite {
     assertEquals(stateWith("01").applyEdit(5, WaveEditor.setCycle(_, 0, '1')), None)
   }
 
+  test("colour edits are written into the JSON and can be undone") {
+    val state = stateWith("x=.x")
+    val before = state.jsonText
+
+    state.applyEdit(0, WaveEditor.setBusColor(_, 2, '5'))
+    assertEquals(waveOf(state), "x5.x")
+    val recoloured = state.jsonText
+
+    state.applyEdit(0, WaveEditor.setSignalColor(_, Some("#ff8800")))
+    assertEquals(state.diagram.get.signals.head.color, Some("#ff8800"))
+    assert(state.jsonText.contains(""""color": "#ff8800""""), state.jsonText)
+
+    // Setting the colour it already has is not an edit
+    assertEquals(state.applyEdit(0, WaveEditor.setSignalColor(_, Some("#FF8800"))), None)
+
+    assertEquals(state.undo(), Some(recoloured))
+    assertEquals(state.diagram.get.signals.head.color, None)
+    assertEquals(state.undo(), Some(before))
+    assertEquals(waveOf(state), "x=.x")
+    assert(!state.canUndo)
+  }
+
   test("replaceText is one undoable step, and a no-op when nothing changes") {
     val state = stateWith("01")
     val original = state.jsonText

@@ -5,7 +5,7 @@ package wavedrom.studio
 object WaveEditor {
 
   private def isBusStart(c: Char): Boolean =
-    WaveState.fromChar(c) == WaveState.DataBus
+    WaveState.isBus(WaveState.fromChar(c))
 
   private def busStartsBefore(wave: String, pos: Int): Int =
     wave.take(pos).count(isBusStart)
@@ -102,6 +102,30 @@ object WaveEditor {
         val data = track.data.padTo(idx + 1, "").updated(idx, label.trim)
         track.copy(data = data.reverse.dropWhile(_.isEmpty).reverse)
     }
+
+  // --- Colours ------------------------------------------------------------
+
+  // The wave character of the bus segment covering `cycle`: `=` or `2`..`9`
+  def busToken(track: SignalTrack, cycle: Int): Option[Char] = {
+    val start = track.wave.lastIndexWhere(_ != '.', cycle)
+    if (cycle < track.wave.length && start >= 0 && isBusStart(track.wave(start)))
+      Some(track.wave(start))
+    else None
+  }
+
+  // Recolours the whole bus segment covering `cycle`; a cycle that is not on
+  // a bus becomes a one-cycle bus of that colour. `token` is `=` or `2`..`9`.
+  def setBusColor(track: SignalTrack, cycle: Int, token: Char): SignalTrack =
+    if (!isBusStart(token)) track
+    else if (busToken(track, cycle).isEmpty) setCycle(track, cycle, token)
+    else {
+      val start = track.wave.lastIndexWhere(_ != '.', cycle)
+      track.copy(wave = track.wave.updated(start, token))
+    }
+
+  // None, or a value that is not a colour, puts the signal back to default
+  def setSignalColor(track: SignalTrack, color: Option[String]): SignalTrack =
+    track.copy(color = color.flatMap(SignalColor.sanitize))
 
   // --- Node markers --------------------------------------------------------
 

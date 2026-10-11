@@ -56,8 +56,12 @@ object WaveJsonCodec {
               }
             }
 
+            val color =
+              if (js.typeOf(obj.color) == "string") Some(obj.color.toString)
+              else None
+
             flatSignals =
-              flatSignals :+ SignalTrack(name, wave, node, dataVec, depth)
+              flatSignals :+ SignalTrack(name, wave, node, dataVec, depth, color)
             signalObjs = signalObjs :+ obj
           }
         }
@@ -126,6 +130,12 @@ object WaveJsonCodec {
         updated.data.foreach(d => dataArr.push(d))
         obj.data = dataArr
       } else js.special.delete(obj, "data")
+    }
+    if (updated.color != original.color) {
+      updated.color match {
+        case Some(color) => obj.color = color
+        case None        => js.special.delete(obj, "color")
+      }
     }
 
     format(doc.root)

@@ -26,14 +26,18 @@ class WaveStateSuite extends munit.FunSuite {
     }
   }
 
-  test("fromChar treats digits 2-9 as data bus") {
+  test("fromChar treats digits 2-9 as data buses that keep their colour digit") {
     ('2' to '9').foreach { c =>
-      assertEquals(WaveState.fromChar(c), WaveState.DataBus, s"token '$c'")
+      assertEquals(WaveState.fromChar(c), WaveState.ColoredBus(c - '0'), s"token '$c'")
+      assert(WaveState.isBus(WaveState.fromChar(c)), s"token '$c'")
     }
+    assert(WaveState.isBus(WaveState.DataBus))
+    assert(!WaveState.isBus(WaveState.High))
+    assert(!WaveState.isBus(WaveState.Hold))
   }
 
   test("toChar round-trips the canonical tokens") {
-    "10pnxz=.".foreach { c =>
+    "10pnxz=.23456789".foreach { c =>
       assertEquals(WaveState.toChar(WaveState.fromChar(c)), c)
     }
   }

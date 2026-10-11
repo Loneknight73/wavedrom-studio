@@ -8,6 +8,90 @@ class WaveEditorSuite extends munit.FunSuite {
       data: Vector[String] = Vector.empty
   ): SignalTrack = SignalTrack("s", wave, node, data)
 
+  // --- Colours ------------------------------------------------------------
+
+  test("setCycle between bus colours keeps the labels where they were") {
+    val edited = WaveEditor.setCycle(track("x2=x", data = Vector("A", "B")), 1, '5')
+    assertEquals(edited.wave, "x5=x")
+    assertEquals(edited.data, Vector("A", "B"))
+  }
+
+  test("setCycle counts coloured buses when it inserts and removes labels") {
+    val added = WaveEditor.setCycle(track("3x4", data = Vector("A", "C")), 1, '7')
+    assertEquals(added.wave, "374")
+    assertEquals(added.data, Vector("A", "", "C"))
+
+    val removed = WaveEditor.setCycle(track("345", data = Vector("A", "B", "C")), 1, '0')
+    assertEquals(removed.wave, "305")
+    assertEquals(removed.data, Vector("A", "C"))
+  }
+
+  test("setCycle splitting a held coloured bus keeps its colour and label") {
+    val edited = WaveEditor.setCycle(track("4...", data = Vector("A")), 1, '0')
+    assertEquals(edited.wave, "404.")
+    assertEquals(edited.data, Vector("A", "A"))
+  }
+
+  test("busToken is the token of the bus segment covering the cycle") {
+    val t = track("0=.3.x")
+    assertEquals(WaveEditor.busToken(t, 0), None)
+    assertEquals(WaveEditor.busToken(t, 1), Some('='))
+    assertEquals(WaveEditor.busToken(t, 2), Some('='))
+    assertEquals(WaveEditor.busToken(t, 4), Some('3'))
+    assertEquals(WaveEditor.busToken(t, 5), None)
+    assertEquals(WaveEditor.busToken(t, 9), None)
+  }
+
+  test("setBusColor recolours the whole segment, from any of its cycles") {
+    val t = track("x=..2x", data = Vector("A", "B"))
+    assertEquals(WaveEditor.setBusColor(t, 1, '7').wave, "x7..2x")
+    assertEquals(WaveEditor.setBusColor(t, 3, '7').wave, "x7..2x")
+    assertEquals(WaveEditor.setBusColor(t, 4, '=').wave, "x=..=x")
+    assertEquals(WaveEditor.setBusColor(t, 3, '7').data, Vector("A", "B"))
+  }
+
+  test("setBusColor turns a cycle that is not a bus into one") {
+    val edited = WaveEditor.setBusColor(track("0..2", data = Vector("B")), 1, '4')
+    assertEquals(edited.wave, "0402")
+    assertEquals(edited.data, Vector("", "B"))
+    assertEquals(WaveEditor.setBusColor(track("01"), 3, '9').wave, "01.9")
+  }
+
+  test("setBusColor ignores a token that is not a bus") {
+    val t = track("x=x")
+    assertEquals(WaveEditor.setBusColor(t, 1, '1'), t)
+    assertEquals(WaveEditor.setBusColor(t, 1, 'q'), t)
+  }
+
+  test("setSignalColor sets, normalises and clears the colour") {
+    val t = track("01")
+    assertEquals(WaveEditor.setSignalColor(t, Some("#FF8800")).color, Some("#ff8800"))
+    assertEquals(WaveEditor.setSignalColor(t, Some(" Red ")).color, Some("red"))
+    val colored = t.copy(color = Some("#ff8800"))
+    assertEquals(WaveEditor.setSignalColor(colored, None).color, None)
+    assertEquals(WaveEditor.setSignalColor(colored, Some("\"/><script>")).color, None)
+    assertEquals(WaveEditor.setSignalColor(colored, Some("#ff8800")), colored)
+  }
+
+  test("SignalColor.sanitize accepts hex colours and CSS names only") {
+    assertEquals(SignalColor.sanitize("#abc"), Some("#abc"))
+    assertEquals(SignalColor.sanitize("#ABCDEF80"), Some("#abcdef80"))
+    assertEquals(SignalColor.sanitize("rebeccapurple"), Some("rebeccapurple"))
+    assertEquals(SignalColor.sanitize("#abcde"), None)
+    assertEquals(SignalColor.sanitize("#ggg"), None)
+    assertEquals(SignalColor.sanitize("notacolour"), None)
+    assertEquals(SignalColor.sanitize("red\" onload=\"x"), None)
+    assertEquals(SignalColor.sanitize("url(#hatch)"), None)
+    assertEquals(SignalColor.sanitize(""), None)
+  }
+
+  test("SignalColor.toPickerValue gives the #rrggbb form") {
+    assertEquals(SignalColor.toPickerValue("#F80"), Some("#ff8800"))
+    assertEquals(SignalColor.toPickerValue("#ff8800"), Some("#ff8800"))
+    assertEquals(SignalColor.toPickerValue("#ff880080"), Some("#ff8800"))
+    assertEquals(SignalColor.toPickerValue("red"), None)
+  }
+
   // --- setCycle ------------------------------------------------------------
 
   test("setCycle changes the targeted cycle") {

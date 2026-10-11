@@ -130,6 +130,11 @@ object SvgRenderer {
 
           sb.append(s"""<g class="signal-row" data-sig-idx="$sigIdx">""")
 
+          // The signal's own colour, when it has a valid one, replaces black
+          // for every line of the row; fills and text keep their colours
+          val ink = sig.color.flatMap(SignalColor.sanitize).getOrElse(Palette.ink)
+          def stroke(d: String): String = line(d, ink)
+
           if (!sig.isSpacer) {
             for (c <- 0 until maxCycles) {
               val activeClass =
@@ -225,7 +230,7 @@ object SvgRenderer {
                     lead = slant
                     sb.append(stroke(s"M $cx $yFrom L ${cx + lead} $yTo"))
                   }
-                case WaveState.DataBus =>
+                case WaveState.DataBus | WaveState.ColoredBus(_) =>
                   // A bus starts from its pinch point on the boundary, so
                   // the edge that reaches it stays vertical
                   if (yFrom != yTo && prev != WaveState.Undefined) {
@@ -251,7 +256,7 @@ object SvgRenderer {
                   )
                 )
                 if (normToken == WaveState.PosClockArrow)
-                  sb.append(clockArrow(cx, yMid, up = true))
+                  sb.append(clockArrow(cx, yMid, up = true, ink))
               case WaveState.NegClock | WaveState.NegClockArrow =>
                 val half = Math.floor(step / 2.0)
                 sb.append(
@@ -260,7 +265,7 @@ object SvgRenderer {
                   )
                 )
                 if (normToken == WaveState.NegClockArrow)
-                  sb.append(clockArrow(cx, yMid, up = false))
+                  sb.append(clockArrow(cx, yMid, up = false, ink))
               case WaveState.Undefined =>
                 // Hatching between a top and a bottom line. It opens from
                 // the level of whatever came before, and pinches shut where
@@ -268,11 +273,11 @@ object SvgRenderer {
                 val busSlope = Math.min(6.0, step / 4.0)
                 val xEnd = cx + step
                 val opening = prevNorm.filter(_ != WaveState.Undefined).map { prev =>
-                  val w = if (prev == WaveState.DataBus) busSlope else slant
+                  val w = if (WaveState.isBus(prev)) busSlope else slant
                   (s"M $cx ${getYLevel(prev, yHigh, yLow, yMid)} L ${cx + w}", cx + w)
                 }
                 val (open, xStart) = opening.getOrElse((s"M $cx", cx))
-                val pinched = nextNorm.contains(WaveState.DataBus)
+                val pinched = nextNorm.exists(WaveState.isBus)
                 val xFlat = if (pinched) xEnd - busSlope else xEnd
                 val close = if (pinched) s" L $xEnd $yMid" else ""
                 val top = s"$open $yHigh L $xFlat $yHigh$close"
@@ -285,17 +290,15 @@ object SvgRenderer {
                 sb.append(stroke(bottom))
               case WaveState.HighZ =>
                 sb.append(stroke(s"M ${cx + lead} $yMid L ${cx + step} $yMid"))
-              case WaveState.DataBus =>
+              case WaveState.DataBus | WaveState.ColoredBus(_) =>
+                val style = BusPalette.style(normToken)
                 val slope = Math.min(6.0, step / 4.0)
+                // A hold continues the value, and with it the colour; a new
+                // bus token always starts a value of its own
                 val isCont =
-                  (c > 0 && token == WaveState.Hold && resolvedStates(
-                    c - 1
-                  ) == WaveState.DataBus)
-                val isNextCont = (c + 1 < states.length && states(
-                  c + 1
-                ) == WaveState.Hold && resolvedStates(
-                  c + 1
-                ) == WaveState.DataBus)
+                  c > 0 && token == WaveState.Hold && WaveState.isBus(resolvedStates(c - 1))
+                val isNextCont =
+                  c + 1 < states.length && states(c + 1) == WaveState.Hold
                 val xRightPinch =
                   if (isNextCont) cx + step else cx + step - slope
 
@@ -323,7 +326,7 @@ object SvgRenderer {
                              else s"L $cx $yLow")
 
                 sb.append(
-                  s"""<path d="$pathD" fill="${Palette.paper}" stroke="none" />"""
+                  s"""<path class="bus-fill" d="$pathD" fill="${style.fill}" stroke="none" />"""
                 )
                 sb.append(stroke(outlineD))
 
@@ -337,7 +340,7 @@ object SvgRenderer {
                     val span =
                       1 + states.drop(c + 1).takeWhile(_ == WaveState.Hold).length
                     labelsSb.append(
-                      s"""<text class="bus-label" x="${cx + (span * step / 2.0)}" y="${yMid + 4}" fill="${Palette.ink}" font-size="11" text-anchor="middle">${escapeHtml(
+                      s"""<text class="bus-label" x="${cx + (span * step / 2.0)}" y="${yMid + 4}" fill="${style.text}" font-size="11" text-anchor="middle">${escapeHtml(
                           labelText
                         )}</text>"""
                     )
@@ -431,16 +434,16 @@ object SvgRenderer {
 
   }
 
-  // A black hairline, the only kind of line a wave is drawn with
-  private def stroke(d: String): String =
-    s"""<path d="$d" stroke="${Palette.ink}" stroke-width="1" fill="none" />"""
+  // A hairline, the only kind of line a wave is drawn with
+  private def line(d: String, color: String): String =
+    s"""<path d="$d" stroke="$color" stroke-width="1" fill="none" />"""
 
   // The arrowhead WaveDrom puts on the working edge of a `P` or `N` clock:
   // a solid triangle half way up the edge, pointing the way the edge goes
-  private def clockArrow(x: Double, yMid: Double, up: Boolean): String = {
+  private def clockArrow(x: Double, yMid: Double, up: Boolean, color: String): String = {
     val tip = if (up) yMid - 4 else yMid + 4
     val base = if (up) yMid + 3 else yMid - 3
-    s"""<path class="clock-arrow" d="M ${x - 3.5} $base L ${x + 3.5} $base L $x $tip Z" fill="${Palette.ink}" stroke="none" />"""
+    s"""<path class="clock-arrow" d="M ${x - 3.5} $base L ${x + 3.5} $base L $x $tip Z" fill="$color" stroke="none" />"""
   }
 
   private def getYLevel(

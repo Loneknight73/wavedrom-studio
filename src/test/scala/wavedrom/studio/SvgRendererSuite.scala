@@ -80,6 +80,96 @@ class SvgRendererSuite extends munit.FunSuite {
     assert(svg.contains(s"""d="M ${x + 4} $high L ${x + state.stepWidth} $high""""), svg)
   }
 
+  // --- Colours ------------------------------------------------------------
+
+  private def fillOf(digit: Int): String =
+    BusPalette.fills.collectFirst { case (`digit`, fill) => fill }.get
+
+  private def busFills(svg: String, fill: String): Int =
+    occurrences(svg, s"""fill="$fill" stroke="none"""")
+
+  test("a plain bus is white") {
+    val svg = render("""{ "signal": [ { "name": "b", "wave": "x=.x", "data": ["D"] } ] }""")
+    assertEquals(busFills(svg, "#fff"), 2)
+    assert(svg.contains("""fill="#000" font-size="11" text-anchor="middle">D</text>"""), svg)
+  }
+
+  test("each bus digit is filled with its own WaveDrom colour") {
+    val svg = render("""{ "signal": [ { "name": "b", "wave": "23456789" } ] }""")
+    (2 to 9).foreach { digit =>
+      assertEquals(busFills(svg, fillOf(digit)), 1, s"digit $digit")
+    }
+    assertEquals(BusPalette.fills.map(_._2).distinct.length, 8)
+    assertEquals(fillOf(3), "#ffffb4")
+  }
+
+  test("a hold continues the colour of the bus before it") {
+    val svg = render("""{ "signal": [ { "name": "b", "wave": "3..5.=" } ] }""")
+    assertEquals(busFills(svg, fillOf(3)), 3)
+    assertEquals(busFills(svg, fillOf(5)), 2)
+    assertEquals(busFills(svg, "#fff"), 1)
+  }
+
+  test("adjacent buses of different colours are separate values") {
+    val firstFill = """<path class="bus-fill" d="([^"]+)"""".r
+    def first(wave: String): String = {
+      val svg = render(s"""{ "signal": [ { "name": "b", "wave": "$wave" } ] }""")
+      firstFill.findFirstMatchIn(svg).get.group(1)
+    }
+    // A new token closes the value before it, whatever its colour; only a
+    // hold lets it run on
+    assertEquals(first("34"), first("33"))
+    assertNotEquals(first("34"), first("3."))
+  }
+
+  test("data labels are matched to bus values whatever their colour") {
+    val svg = render("""{ "signal": [
+      { "name": "b", "wave": "x2.3=0.7", "data": ["A", "B", "C", "D"] }
+    ] }""")
+    def labelX(label: String): Double = {
+      val m = ("<text class=\"bus-label\" x=\"([0-9.]+)\"[^>]*>" + label + "</text>").r
+        .findFirstMatchIn(svg)
+      assert(m.nonEmpty, s"label $label")
+      m.get.group(1).toDouble
+    }
+    // labelWidth 120, step 45: each label is centred over its whole value
+    assertEquals(labelX("A"), 120 + 2 * 45.0)
+    assertEquals(labelX("B"), 120 + 3.5 * 45)
+    assertEquals(labelX("C"), 120 + 4.5 * 45)
+    assertEquals(labelX("D"), 120 + 7.5 * 45)
+  }
+
+  test("a signal colour replaces black for the lines of its own row only") {
+    val svg = render("""{ "signal": [
+      { "name": "a", "wave": "01PnzX3", "color": "#FF8800" },
+      { "name": "b", "wave": "01" }
+    ] }""")
+    val rows = svg.split("<g class=\"signal-row\"").drop(1)
+    val colored = rows(0)
+    val plain = rows(1).split("<g id=\"cycleHits\"")(0)
+    assert(colored.contains("""stroke="#ff8800" stroke-width="1""""), colored)
+    assert(!colored.contains("""stroke="#000""""), colored)
+    // The arrow of a clock follows the signal as well
+    assert(colored.contains("""fill="#ff8800" stroke="none""""), colored)
+    // A bus keeps the fill of its digit, and an undefined cycle its hatching
+    assertEquals(busFills(colored, fillOf(3)), 1)
+    assert(colored.contains("""fill="url(#hatch)""""), colored)
+    assert(plain.contains("""stroke="#000""""), plain)
+    assert(!plain.contains("#ff8800"), plain)
+  }
+
+  test("an invalid signal colour never reaches the SVG and black is used") {
+    val svg = render(
+      """{ "signal": [ { "name": "a", "wave": "01", "color": "red\" onload=\"alert(1)" } ] }"""
+    )
+    assert(!svg.contains("onload"), svg)
+    assert(svg.contains("""stroke="#000" stroke-width="1""""), svg)
+
+    val unknown = render("""{ "signal": [ { "name": "a", "wave": "01", "color": "notacolour" } ] }""")
+    assert(!unknown.contains("notacolour"), unknown)
+    assert(unknown.contains("""stroke="#000" stroke-width="1""""), unknown)
+  }
+
   test("renders an edge between two resolved nodes") {
     val svg = render("""{ "signal": [
       { "name": "req", "wave": "01.0", "node": ".a.." },
@@ -173,6 +263,6 @@ class SvgRendererSuite extends munit.FunSuite {
     assertEquals(xs("tail"), 120 + 45 * 3.0)
     assertEquals(xs("one"), 120 + 45 * 5.5)
     // Labels come after the row's fills, so no later fill can cover them
-    assert(svg.indexOf("bus-label") > svg.lastIndexOf("""fill="#fff" stroke="none""""))
+    assert(svg.indexOf("bus-label") > svg.lastIndexOf("""class="bus-fill""""))
   }
 }
