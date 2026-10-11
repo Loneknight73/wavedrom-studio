@@ -58,7 +58,7 @@ class WorkspaceSuite extends munit.FunSuite {
     val workspace = workspaceOf("a")
     workspace.close(0)
     assertEquals(titles(workspace), Vector("untitled"))
-    assertEquals(workspace.active.jsonText, Samples.blank)
+    assertEquals(workspace.active.jsonText, AppState.normalizeNewlines(Samples.blank))
     assert(!workspace.active.isDirty)
   }
 

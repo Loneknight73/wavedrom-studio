@@ -16,6 +16,12 @@ object AppState {
     state.markSaved()
     state
   }
+
+  // The text editor holds line feeds only, whatever the text it was given.
+  // Documents are kept the same way, so a file or sample with Windows line
+  // endings does not look modified the moment it is shown.
+  def normalizeNewlines(text: String): String =
+    text.replace("\r\n", "\n").replace('\r', '\n')
 }
 
 // The state of one open document (one tab)
@@ -29,7 +35,8 @@ class AppState {
 
   def title: String = fileName.getOrElse("untitled")
   def isDirty: Boolean = jsonText != savedText
-  def markSaved(text: String = jsonText): Unit = savedText = text
+  def markSaved(text: String = jsonText): Unit =
+    savedText = AppState.normalizeNewlines(text)
 
   var document: Option[WaveDocument] = None
   val stepWidth: Double = 45.0
@@ -50,8 +57,8 @@ class AppState {
   def canUndo: Boolean = undoStack.nonEmpty
 
   def updateFromText(newText: String): Either[String, WaveDiagram] = {
-    jsonText = newText
-    WaveJsonCodec.parseDocument(newText) match {
+    jsonText = AppState.normalizeNewlines(newText)
+    WaveJsonCodec.parseDocument(jsonText) match {
       case Right(parsed) =>
         document = Some(parsed)
         Right(parsed.diagram)

@@ -88,4 +88,38 @@ class AppStateSuite extends munit.FunSuite {
     assertEquals(waveOf(state), "01")
     assertEquals(state.undo(), None)
   }
+
+  test("a document with Windows line endings is not modified once shown") {
+    val windows = "{\r\n  \"signal\": [\r\n    { \"name\": \"a\", \"wave\": \"01\" }\r\n  ]\r\n}"
+    val state = AppState.open(windows)
+    assert(!state.isDirty)
+    assert(!state.jsonText.contains('\r'))
+
+    // The text editor hands back the same text with line feeds only
+    state.updateFromText(windows.replace("\r\n", "\n"))
+    assert(!state.isDirty)
+
+    state.markSaved(windows)
+    assert(!state.isDirty)
+  }
+
+  test("no built-in sample looks modified when it is opened") {
+    (Samples.blank +: Samples.all.map(_.json)).foreach { json =>
+      val state = AppState.open(json)
+      state.updateFromText(json.replace("\r\n", "\n"))
+      assert(!state.isDirty, json.take(40))
+    }
+  }
+
+  test("the nodes of the full demo sit on the edges of its handshake") {
+    val signals = AppState.open(Samples.full.json).diagram.get.signals
+    def edgeCycles(name: String): Set[Int] = {
+      val wave = signals.find(_.name == name).get.wave
+      wave.indices.filter(c => c > 0 && wave(c) != '.').toSet
+    }
+    def nodeCycles(name: String): Set[Int] =
+      WaveJsonCodec.parseNodeTokens(signals.find(_.name == name).get.node).keySet
+    assertEquals(nodeCycles("req"), edgeCycles("req"))
+    assertEquals(nodeCycles("ack"), edgeCycles("ack"))
+  }
 }

@@ -11,8 +11,8 @@ object Samples {
     """{
   "signal": [
     { "name": "clk",     "wave": "p.........." },
-    { "name": "req",     "wave": "0.1..0.....", "node": "...a..b...." },
-    { "name": "ack",     "wave": "0...1..0...", "node": ".....c..d.." },
+    { "name": "req",     "wave": "0..1..0.....", "node": "...a..b...." },
+    { "name": "ack",     "wave": "0....1..0...", "node": ".....c..d.." },
     {},
     [ "Data Bus",
       { "name": "addr",  "wave": "x.=.=.=...x", "data": ["0x1000", "0x1004", "0x1008"] },
