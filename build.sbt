@@ -3,7 +3,7 @@ enablePlugins(ScalaJSPlugin)
 import scala.util.control.NonFatal
 
 name := "wavedrom-plus"
-version := "0.1.0-SNAPSHOT"
+version := "0.0.1"
 
 scalaVersion := "3.3.4"
 
