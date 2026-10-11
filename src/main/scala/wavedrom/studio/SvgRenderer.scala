@@ -17,6 +17,10 @@ object SvgRenderer {
 
   private val fontFamily = "Helvetica, Arial, sans-serif"
 
+  // Space between a signal's name and its wave, and between nested braces
+  private val nameGap = 8
+  private val braceGap = 26
+
   def render(state: AppState, container: html.Div): Unit =
     container.innerHTML = renderToString(state)
 
@@ -36,7 +40,13 @@ object SvgRenderer {
           (diag.groups.map(_.depth) ++ diag.signals.map(_.depth)).maxOption
             .getOrElse(0)
         val groupIndent = maxGroupDepth * 22
-        val labelWidth = 120 + groupIndent
+        // The name column is as wide as the longest name (estimated, since
+        // text cannot be measured here), with the group braces just left of it
+        val nameWidth = diag.signals.map(_.name.length).maxOption.getOrElse(0) * 6.5
+        val braceLevels = diag.groups.map(_.depth).maxOption.map(_ + 1).getOrElse(0)
+        val braceSpace = if (braceLevels > 0) 20 + braceLevels * braceGap else 0
+        val labelWidth =
+          Math.max(120.0 + groupIndent, Math.ceil(nameWidth + nameGap + braceSpace + 8))
         val step = state.stepWidth
         val rowH = state.rowHeight
         val totalWidth = labelWidth + (maxCycles * step) + 60
@@ -95,7 +105,9 @@ object SvgRenderer {
           diag.groups.foreach { g =>
             val topY = 35 + (g.startSigIdx * rowH) + 8
             val bottomY = 35 + (g.endSigIdx * rowH) + 40
-            val bx = 16 + (g.depth * 20)
+            // The innermost brace hugs the names; outer ones step leftwards
+            val bx = labelWidth - nameGap - nameWidth - 12 -
+              (braceLevels - 1 - g.depth) * braceGap
             val midY = (topY + bottomY) / 2.0
             val r = Math.min(8.0, (bottomY - topY) / 4.0)
 
@@ -146,7 +158,7 @@ object SvgRenderer {
           }
           // Names sit to the left of the waves, flush against them
           sb.append(
-            s"""<text x="${labelWidth - 8}" y="${rowY + 28}" fill="${Palette.ink}" font-size="11" text-anchor="end">${escapeHtml(
+            s"""<text x="${labelWidth - nameGap}" y="${rowY + 28}" fill="${Palette.ink}" font-size="11" text-anchor="end">${escapeHtml(
                 sig.name
               )}</text>"""
           )

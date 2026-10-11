@@ -37,16 +37,16 @@ object BusPalette {
 // The optional per-signal colour: the `color` key of a signal object, which
 // is an extension to WaveJSON that standard WaveDrom ignores.
 object SignalColor {
-  // Offered as swatches in the cycle editor
+  // Offered as swatches in the cycle editor: the hues of the bus palette, in
+  // the same order, strengthened just enough for a thin line to show on white
   val presets: Vector[String] = Vector(
-    "#d32f2f", // red
-    "#e65100", // orange
-    "#9a7400", // ochre
-    "#2e7d32", // green
-    "#00838f", // teal
-    "#0041c4", // blue
-    "#6a1b9a", // purple
-    "#c2185b" // pink
+    "#e0b000", // yellow
+    "#ff8c1a", // orange
+    "#3b9dff", // blue
+    "#19c3d1", // cyan
+    "#3dc94a", // green
+    "#c45cee", // purple
+    "#f0605a" // red
   )
 
   private val hex = "#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})".r

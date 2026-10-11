@@ -90,10 +90,10 @@ object Samples {
       "colors.json",
       """{
   "signal": [
-    { "name": "clk",   "wave": "P........", "color": "#0041c4" },
+    { "name": "clk",   "wave": "P........", "color": "#3b9dff" },
     { "name": "state", "wave": "2.3.4.5.2", "data": ["IDLE", "REQ", "WAIT", "XFER", "IDLE"] },
     { "name": "burst", "wave": "x.6789=.x", "data": ["B0", "B1", "B2", "B3", "END"] },
-    { "name": "irq",   "wave": "0....1.0.", "color": "#d32f2f" }
+    { "name": "irq",   "wave": "0....1.0.", "color": "#f0605a" }
   ]
 }"""
     )

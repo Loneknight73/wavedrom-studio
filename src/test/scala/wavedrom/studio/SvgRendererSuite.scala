@@ -265,4 +265,31 @@ class SvgRendererSuite extends munit.FunSuite {
     // Labels come after the row's fills, so no later fill can cover them
     assert(svg.indexOf("bus-label") > svg.lastIndexOf("""class="bus-fill""""))
   }
+
+  test("group braces sit just left of the signal names") {
+    val svg = render("""{ "signal": [
+      [ "Outer",
+        { "name": "abcd", "wave": "01" },
+        [ "Inner", { "name": "ef", "wave": "10" } ]
+      ]
+    ] }""")
+    // The brace's vertical run: "... L <x> <y> Q ..." inside #groupBrackets
+    val braces = svg.split("<g id=\"groupBrackets\">")(1).split("</g>")(0)
+    val xs = """<path d="M [0-9.]+ [0-9.]+ Q ([0-9.]+) """.r
+      .findAllMatchIn(braces).map(_.group(1).toDouble).toVector
+    val nameX = """<text x="([0-9.]+)"[^>]*text-anchor="end">abcd<""".r
+      .findFirstMatchIn(svg).get.group(1).toDouble
+    // Longest name is 4 characters, estimated at 6.5px each
+    val nameLeft = nameX - 4 * 6.5
+    assertEquals(xs.max, nameLeft - 12)
+    assertEquals(xs.min, nameLeft - 12 - 26)
+  }
+
+  test("the name column grows to fit a long name") {
+    val name = "a_rather_long_signal_name_here"
+    val svg = render(s"""{ "signal": [ { "name": "$name", "wave": "01" } ] }""")
+    val nameX = ("<text x=\"([0-9.]+)\"[^>]*text-anchor=\"end\">" + name + "<").r
+      .findFirstMatchIn(svg).get.group(1).toDouble
+    assert(nameX - name.length * 6.5 >= 0, nameX)
+  }
 }
