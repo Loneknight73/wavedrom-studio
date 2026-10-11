@@ -29,7 +29,13 @@ sbt test
 ```
 Runs the munit suites under Node.js.
 
-### 4. Launch the Studio
+### 4. Package a Release
+```bash
+sbt dist
+```
+Builds the optimised script and writes the two files a release needs, `index.html` and `main.js`, to `target/dist/wavedrom-plus-<version>/`, with a zip of that folder next to it. The folder runs opened straight from disk or served by any static web server; it needs no sbt, Node.js or internet access.
+
+### 5. Launch the Studio
 
 You can launch the studio using any of the following methods:
 
