@@ -51,7 +51,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log(`\n====================================================`);
-  console.log(`  WaveDrom Plus Studio server running at: ${url}`);
+  console.log(`  WaveDrom Studio server running at: ${url}`);
   console.log(`====================================================\n`);
 
   // Open default browser on launch

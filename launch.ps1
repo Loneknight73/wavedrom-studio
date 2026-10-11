@@ -1,4 +1,4 @@
-# Launch WaveDrom Plus Studio
+# Launch WaveDrom Studio
 Write-Host "Compiling WaveDrom Studio with sbt fastLinkJS..." -ForegroundColor Cyan
 sbt fastLinkJS
 if ($LASTEXITCODE -eq 0) {

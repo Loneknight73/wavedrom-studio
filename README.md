@@ -1,4 +1,4 @@
-# WaveDrom Plus Studio
+# WaveDrom Studio
 
 An interactive timing diagram studio inspired by **WaveDrom**, implemented in **Scala 3** and **Scala.js** (`scalajs-dom`).
 

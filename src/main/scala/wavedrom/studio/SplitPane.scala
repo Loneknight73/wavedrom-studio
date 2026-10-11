@@ -11,9 +11,9 @@ import scala.util.Try
 // on the layout element, and each orientation remembers its own size.
 object SplitPane {
 
-  private val layoutKey = "wavedrom-plus.layout"
-  private val widthKey = "wavedrom-plus.editorWidth"
-  private val heightKey = "wavedrom-plus.editorHeight"
+  private val layoutKey = "wavedrom-studio.layout"
+  private val widthKey = "wavedrom-studio.editorWidth"
+  private val heightKey = "wavedrom-studio.editorHeight"
   private val minPaneWidth = 240.0
   private val minPaneHeight = 120.0
 
