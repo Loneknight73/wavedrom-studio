@@ -36,6 +36,50 @@ class SvgRendererSuite extends munit.FunSuite {
     assert(svg.contains(">D1</text>"))
   }
 
+  test("draws in the classic WaveDrom colours, carried by the SVG itself") {
+    val svg = render("""{ "signal": [
+      { "name": "clk", "wave": "p..." },
+      { "name": "bus", "wave": "x=.z", "data": ["D0"], "node": ".a.b" }
+    ], "edge": ["a->b t"] }""")
+    val colours = "#[0-9a-fA-F]{3,6}\\b".r.findAllIn(svg).toSet
+    assertEquals(colours, Set("#000", "#fff", "#888", "#666", "#0041c4"))
+    assert(svg.contains("""font-family="Helvetica, Arial, sans-serif""""))
+    // The hatching of an undefined region comes with its own pattern
+    assert(svg.contains("""<pattern id="hatch""""))
+    assert(svg.contains("""fill="url(#hatch)""""))
+    // A bus is a white box with a black outline
+    assert(svg.contains("""fill="#fff" stroke="none""""))
+  }
+
+  test("outlines a held bus value as one box") {
+    val state = new AppState()
+    state.updateFromText("""{ "signal": [ { "name": "bus", "wave": "=.", "data": ["D0"] } ] }""")
+    val svg = SvgRenderer.renderToString(state)
+    // The second cycle's outline is open on the boundary it shares with the
+    // first (x 165) and pinches shut 6px before its own end
+    val x = 120.0 + state.stepWidth
+    val end = x + state.stepWidth
+    val (high, mid, low) = (47.0, 59.0, 71.0)
+    assert(
+      svg.contains(
+        s"""d="M $x $high L ${end - 6} $high L $end $mid L ${end - 6} $low L $x $low" stroke="#000""""
+      ),
+      svg
+    )
+  }
+
+  test("slants the edge between two levels") {
+    val state = new AppState()
+    state.updateFromText("""{ "signal": [ { "name": "req", "wave": "01" } ] }""")
+    val svg = SvgRenderer.renderToString(state)
+    // Row 0: low at y 71, high at y 47; the change starts on the boundary of
+    // cycle 1 and reaches the new level 4px later
+    val x = 120.0 + state.stepWidth
+    val (low, high) = (71.0, 47.0)
+    assert(svg.contains(s"""d="M $x $low L ${x + 4} $high""""), svg)
+    assert(svg.contains(s"""d="M ${x + 4} $high L ${x + state.stepWidth} $high""""), svg)
+  }
+
   test("renders an edge between two resolved nodes") {
     val svg = render("""{ "signal": [
       { "name": "req", "wave": "01.0", "node": ".a.." },
@@ -77,9 +121,9 @@ class SvgRendererSuite extends munit.FunSuite {
     val state = new AppState()
     state.updateFromText(twoSignals)
     val svg = SvgRenderer.renderToString(state)
-    // labelWidth 120 + cycle 1 * step 45; the badge is centred on that x
+    // labelWidth 120 + cycle 1 * step 45; the marker is centred on that x
     val centre = 120.0 + 1 * state.stepWidth
-    val badge = """<text x="([0-9.]+)" y="[0-9.]+" fill="#ffffff"""".r
+    val badge = """<text class="node-label" x="([0-9.]+)"""".r
     assertEquals(badge.findFirstMatchIn(svg).map(_.group(1).toDouble), Some(centre))
   }
 

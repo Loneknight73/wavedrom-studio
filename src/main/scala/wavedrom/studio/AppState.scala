@@ -35,7 +35,7 @@ class AppState {
   val stepWidth: Double = 45.0
   // Scale of the whole drawing on screen; 1.0 is its natural size
   var zoom: Double = 1.0
-  val rowHeight: Double = 52.0
+  val rowHeight: Double = 40.0
   var selectedNodeForEdge: Option[String] = None
 
   // (signal index, cycle index) currently open in the cycle popover
