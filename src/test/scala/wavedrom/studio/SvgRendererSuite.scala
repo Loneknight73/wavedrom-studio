@@ -154,4 +154,25 @@ class SvgRendererSuite extends munit.FunSuite {
     )
     assertEquals(occurrences(svg, "cycle-hit active"), 1)
   }
+
+  test("upper-case clocks carry an arrow on every cycle, lower-case ones none") {
+    val plain = render("""{ "signal": [ { "name": "clk", "wave": "p..n" } ] }""")
+    assertEquals(occurrences(plain, "clock-arrow"), 0)
+
+    val arrows = render("""{ "signal": [ { "name": "clk", "wave": "P..N" } ] }""")
+    assertEquals(occurrences(arrows, "clock-arrow"), 4)
+  }
+
+  test("a bus label is centred over the whole held value") {
+    val svg = render("""{ "signal": [
+      { "name": "d", "wave": "x=...=x", "data": ["tail", "one"] }
+    ] }""")
+    val label = """<text class="bus-label" x="([0-9.]+)"[^>]*>([^<]*)<""".r
+    val xs = label.findAllMatchIn(svg).map(m => m.group(2) -> m.group(1).toDouble).toMap
+    // labelWidth 120, step 45: "tail" spans cycles 1-4, "one" is cycle 5
+    assertEquals(xs("tail"), 120 + 45 * 3.0)
+    assertEquals(xs("one"), 120 + 45 * 5.5)
+    // Labels come after the row's fills, so no later fill can cover them
+    assert(svg.indexOf("bus-label") > svg.lastIndexOf("""fill="#fff" stroke="none""""))
+  }
 }

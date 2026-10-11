@@ -191,6 +191,9 @@ object SvgRenderer {
           }
 
           var busDataCounter = 0
+          // Bus labels are drawn after the row's shapes, so the fill of a
+          // later cycle cannot cover a label centred over several cycles
+          val labelsSb = new StringBuilder()
 
           for (c <- states.indices) {
             val cx = labelWidth + (c * step)
@@ -240,20 +243,24 @@ object SvgRenderer {
                 sb.append(stroke(s"M ${cx + lead} $yHigh L ${cx + step} $yHigh"))
               case WaveState.Low =>
                 sb.append(stroke(s"M ${cx + lead} $yLow L ${cx + step} $yLow"))
-              case WaveState.PosClock =>
+              case WaveState.PosClock | WaveState.PosClockArrow =>
                 val half = Math.floor(step / 2.0)
                 sb.append(
                   stroke(
                     s"M $cx $yLow L $cx $yHigh L ${cx + half} $yHigh L ${cx + half} $yLow L ${cx + step} $yLow"
                   )
                 )
-              case WaveState.NegClock =>
+                if (normToken == WaveState.PosClockArrow)
+                  sb.append(clockArrow(cx, yMid, up = true))
+              case WaveState.NegClock | WaveState.NegClockArrow =>
                 val half = Math.floor(step / 2.0)
                 sb.append(
                   stroke(
                     s"M $cx $yHigh L $cx $yLow L ${cx + half} $yLow L ${cx + half} $yHigh L ${cx + step} $yHigh"
                   )
                 )
+                if (normToken == WaveState.NegClockArrow)
+                  sb.append(clockArrow(cx, yMid, up = false))
               case WaveState.Undefined =>
                 // Hatching between a top and a bottom line. It opens from
                 // the level of whatever came before, and pinches shut where
@@ -326,8 +333,11 @@ object SvgRenderer {
                       sig.data(busDataCounter)
                     else ""
                   if (labelText.nonEmpty) {
-                    sb.append(
-                      s"""<text x="${cx + (step / 2)}" y="${yMid + 4}" fill="${Palette.ink}" font-size="11" text-anchor="middle">${escapeHtml(
+                    // Centred over the whole value, however long it is held
+                    val span =
+                      1 + states.drop(c + 1).takeWhile(_ == WaveState.Hold).length
+                    labelsSb.append(
+                      s"""<text class="bus-label" x="${cx + (span * step / 2.0)}" y="${yMid + 4}" fill="${Palette.ink}" font-size="11" text-anchor="middle">${escapeHtml(
                           labelText
                         )}</text>"""
                     )
@@ -338,6 +348,7 @@ object SvgRenderer {
             }
           }
 
+          sb.append(labelsSb.toString)
           sb.append("</g>")
         }
 
@@ -424,15 +435,23 @@ object SvgRenderer {
   private def stroke(d: String): String =
     s"""<path d="$d" stroke="${Palette.ink}" stroke-width="1" fill="none" />"""
 
+  // The arrowhead WaveDrom puts on the working edge of a `P` or `N` clock:
+  // a solid triangle half way up the edge, pointing the way the edge goes
+  private def clockArrow(x: Double, yMid: Double, up: Boolean): String = {
+    val tip = if (up) yMid - 4 else yMid + 4
+    val base = if (up) yMid + 3 else yMid - 3
+    s"""<path class="clock-arrow" d="M ${x - 3.5} $base L ${x + 3.5} $base L $x $tip Z" fill="${Palette.ink}" stroke="none" />"""
+  }
+
   private def getYLevel(
       state: WaveState,
       yHigh: Double,
       yLow: Double,
       yMid: Double
   ): Double = state match {
-    case WaveState.High | WaveState.NegClock => yHigh
-    case WaveState.Low | WaveState.PosClock  => yLow
-    case _                                   => yMid
+    case WaveState.High | WaveState.NegClock | WaveState.NegClockArrow => yHigh
+    case WaveState.Low | WaveState.PosClock | WaveState.PosClockArrow  => yLow
+    case _                                                             => yMid
   }
 
   private def escapeHtml(str: String): String = {

@@ -6,14 +6,23 @@ sealed trait WaveState
 object WaveState {
   case object High extends WaveState // 1, h, H
   case object Low extends WaveState // 0, l, L
-  case object PosClock extends WaveState // p, P
-  case object NegClock extends WaveState // n, N
+  case object PosClock extends WaveState // p
+  case object NegClock extends WaveState // n
+  case object PosClockArrow extends WaveState // P: arrow on the rising edge
+  case object NegClockArrow extends WaveState // N: arrow on the falling edge
   case object Undefined extends WaveState // x, X
   case object HighZ extends WaveState // z, Z
   case object DataBus extends WaveState // =, 2..9
   case object Hold extends WaveState // .
 
-  def fromChar(c: Char): WaveState = c.toLower match {
+  // Clocks are case sensitive: the upper-case forms carry an arrow
+  def fromChar(c: Char): WaveState = c match {
+    case 'P' => PosClockArrow
+    case 'N' => NegClockArrow
+    case _   => fromLowerChar(c.toLower)
+  }
+
+  private def fromLowerChar(c: Char): WaveState = c match {
     case '1' | 'h'      => High
     case '0' | 'l'      => Low
     case 'p'            => PosClock
@@ -31,6 +40,8 @@ object WaveState {
     case Low       => '0'
     case PosClock  => 'p'
     case NegClock  => 'n'
+    case PosClockArrow => 'P'
+    case NegClockArrow => 'N'
     case Undefined => 'x'
     case HighZ     => 'z'
     case DataBus   => '='

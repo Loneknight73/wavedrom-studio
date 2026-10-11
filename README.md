@@ -65,7 +65,7 @@ You can also open [index.html](index.html) directly in any web browser.
 - **Stack the panes**: the Stack panes / Side by side button puts the JSON editor above the waveform instead of beside it. Each layout remembers its own divider position.
 - **Zoom**: use the slider or the − / + buttons, or hold Ctrl and scroll over the waveform. The drawing scales as a whole, and the pane scrolls when it no longer fits.
 - **Edit a wave graphically**: click any cycle to open the cycle editor.
-  - Pick a state, or press its key (`1 0 p n x z = .`) while the editor is open.
+  - Pick a state, or press its key (`1 0 p n x z = .`) while the editor is open. Shift+P and Shift+N give `P` and `N`, the clocks drawn with an arrow on their working edge.
   - Set a node marker (multi-character names are supported) or, on a bus cycle, its label.
   - Insert a hold cycle after the clicked one, or delete the cycle.
   - Click past the end of a short signal to extend it.

@@ -11,9 +11,9 @@ class WaveStateSuite extends munit.FunSuite {
       'l' -> WaveState.Low,
       'L' -> WaveState.Low,
       'p' -> WaveState.PosClock,
-      'P' -> WaveState.PosClock,
+      'P' -> WaveState.PosClockArrow,
       'n' -> WaveState.NegClock,
-      'N' -> WaveState.NegClock,
+      'N' -> WaveState.NegClockArrow,
       'x' -> WaveState.Undefined,
       'X' -> WaveState.Undefined,
       'z' -> WaveState.HighZ,
@@ -34,6 +34,12 @@ class WaveStateSuite extends munit.FunSuite {
 
   test("toChar round-trips the canonical tokens") {
     "10pnxz=.".foreach { c =>
+      assertEquals(WaveState.toChar(WaveState.fromChar(c)), c)
+    }
+  }
+
+  test("arrow clocks keep their case") {
+    "PN".foreach { c =>
       assertEquals(WaveState.toChar(WaveState.fromChar(c)), c)
     }
   }

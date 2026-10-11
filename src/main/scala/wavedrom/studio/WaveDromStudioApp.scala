@@ -346,7 +346,9 @@ object WaveDromStudioApp {
       saveActive()
     } else if (!inField && !modifier && popover.isOpen && key.length == 1 && stateKeys.contains(key)) {
       e.preventDefault()
-      popover.setState(key.charAt(0))
+      // Shift+P and Shift+N give the clocks that carry an arrow
+      val arrowClock = e.shiftKey && (key == "p" || key == "n")
+      popover.setState(if (arrowClock) key.charAt(0).toUpper else key.charAt(0))
     } else if (!inField && command && key == "z") {
       e.preventDefault()
       undo()
