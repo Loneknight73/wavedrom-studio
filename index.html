@@ -577,6 +577,64 @@
       background: #4338ca;
     }
 
+    .pop-swatches {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .pop-swatches > span {
+      display: contents;
+    }
+
+    .pop-swatch {
+      width: 1.5rem;
+      height: 1.5rem;
+      padding: 0;
+      border: 1px solid #3b4a60;
+      border-radius: 5px;
+      color: #0f172a;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .pop-swatch:hover {
+      border-color: #f8fafc;
+    }
+
+    .pop-swatch.selected {
+      outline: 2px solid #f8fafc;
+      outline-offset: 1px;
+    }
+
+    .pop-color-input {
+      width: 2rem;
+      height: 1.5rem;
+      padding: 0;
+      border: 1px solid #3b4a60;
+      border-radius: 5px;
+      background: none;
+      cursor: pointer;
+    }
+
+    .pop-clear {
+      margin-left: auto;
+      background: #283548;
+      border: 1px solid #3b4a60;
+      border-radius: 6px;
+      padding: 0.25rem 0.55rem;
+      color: #cbd5e1;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .pop-clear:hover {
+      border-color: var(--accent-cyan);
+    }
+
     .pop-actions {
       border-top: 1px solid #334155;
       margin-top: 0.75rem;
@@ -701,6 +759,7 @@
         <option value="i2c">I2C Transmission (SCL, SDA with Ack)</option>
         <option value="ddr">DDR Memory Handshake</option>
         <option value="groups">Grouped Signals & Brackets</option>
+        <option value="colors">Coloured Buses & Signals</option>
       </select>
     </div>
 
@@ -778,6 +837,18 @@
         <button class="pop-set" type="submit">Set</button>
       </form>
     </div>
+    <div class="pop-section">
+      <label>Bus Colour of this cycle (keys 2&ndash;9):</label>
+      <div class="pop-swatches" id="popBusColors"></div>
+    </div>
+    <div class="pop-section">
+      <label for="popSignalColorInput">Signal Colour (whole signal):</label>
+      <div class="pop-swatches">
+        <span id="popSignalPresets"></span>
+        <input type="color" class="pop-color-input" id="popSignalColorInput" title="Custom colour">
+        <button class="pop-clear" id="popSignalColorClear" title="Remove the signal's colour">Default</button>
+      </div>
+    </div>
     <div class="pop-actions">
       <button class="pop-action" id="popInsert">Insert Hold Cycle After <span>+1</span></button>
       <button class="pop-action danger" id="popDelete">Delete Cycle <span>&minus;1</span></button>
@@ -790,6 +861,7 @@
     <span><span class="guide-tag">p/n</span> Clock</span>
     <span><span class="guide-tag">1/0</span> High/Low</span>
     <span><span class="guide-tag">=</span> Data Bus</span>
+    <span><span class="guide-tag">2-9</span> Coloured Bus</span>
     <span><span class="guide-tag">.</span> Hold</span>
     <span><span class="guide-tag">z</span> High-Z</span>
     <span><span class="guide-tag">x</span> Undefined</span>

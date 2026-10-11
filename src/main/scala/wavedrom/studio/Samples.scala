@@ -84,6 +84,18 @@ object Samples {
     ]
   ]
 }"""
+    ),
+    Sample(
+      "colors",
+      "colors.json",
+      """{
+  "signal": [
+    { "name": "clk",   "wave": "p........", "color": "#f472b6" },
+    { "name": "state", "wave": "2.3.4.5.2", "data": ["IDLE", "REQ", "WAIT", "XFER", "IDLE"] },
+    { "name": "burst", "wave": "x.6789=.x", "data": ["B0", "B1", "B2", "B3", "END"] },
+    { "name": "irq",   "wave": "0....1.0.", "color": "#fb923c" }
+  ]
+}"""
     )
   )
 

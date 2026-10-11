@@ -10,7 +10,9 @@ object WaveState {
   case object NegClock extends WaveState // n, N
   case object Undefined extends WaveState // x, X
   case object HighZ extends WaveState // z, Z
-  case object DataBus extends WaveState // =, 2..9
+  case object DataBus extends WaveState // =
+  // 2..9: a data bus in one of WaveDrom's eight colours (see BusPalette)
+  final case class ColoredBus(digit: Int) extends WaveState
   case object Hold extends WaveState // .
 
   def fromChar(c: Char): WaveState = c.toLower match {
@@ -21,9 +23,14 @@ object WaveState {
     case 'x'            => Undefined
     case 'z'            => HighZ
     case '='            => DataBus
-    case d if d.isDigit => DataBus
+    case d if d >= '2' && d <= '9' => ColoredBus(d - '0')
     case '.'            => Hold
     case _              => Low
+  }
+
+  def isBus(state: WaveState): Boolean = state match {
+    case DataBus | ColoredBus(_) => true
+    case _                       => false
   }
 
   def toChar(state: WaveState): Char = state match {
@@ -34,6 +41,7 @@ object WaveState {
     case Undefined => 'x'
     case HighZ     => 'z'
     case DataBus   => '='
+    case ColoredBus(digit) => ('0' + digit).toChar
     case Hold      => '.'
   }
 }
@@ -43,7 +51,9 @@ case class SignalTrack(
     wave: String,
     node: String = "",
     data: Vector[String] = Vector.empty,
-    depth: Int = 0
+    depth: Int = 0,
+    // Extension to WaveJSON: the stroke colour of this signal's waveform
+    color: Option[String] = None
 ) {
   def parsedStates: Vector[WaveState] = wave.map(WaveState.fromChar).toVector
 

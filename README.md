@@ -67,6 +67,8 @@ You can also open [index.html](index.html) directly in any web browser.
 - **Edit a wave graphically**: click any cycle to open the cycle editor.
   - Pick a state, or press its key (`1 0 p n x z = .`) while the editor is open.
   - Set a node marker (multi-character names are supported) or, on a bus cycle, its label.
+  - Colour a bus: pick a swatch, or press `2`..`9` (WaveDrom's bus colour digits; `=` is the plain bus). The whole bus segment under the clicked cycle is recoloured, and a cycle that is not a bus becomes one.
+  - Colour a signal: pick a preset or a custom colour under *Signal Colour*, or *Default* to remove it. It is stored as an extra `"color"` key on the signal (`{ "name": "clk", "wave": "p...", "color": "#ff8800" }`, a hex value or CSS colour name), which standard WaveDrom ignores. It sets the stroke of the signal's waveform; bus fills still follow the bus digit, and undefined (`x`) cycles stay red.
   - Insert a hold cycle after the clicked one, or delete the cycle.
   - Click past the end of a short signal to extend it.
 - **Undo**: the Undo button, or Ctrl+Z outside the text editor, reverts graphical edits.
@@ -82,6 +84,7 @@ wavedrom-plus/
 ├── src/
 │   ├── main/scala/wavedrom/studio/
 │   │   ├── Model.scala              # AST & domain model (WaveState, SignalTrack, WaveDiagram, ...)
+│   │   ├── Colors.scala             # Bus colour palette & per-signal colour validation
 │   │   ├── WaveJsonCodec.scala      # WaveJSON parser & serializer
 │   │   ├── WaveEditor.scala         # Pure edit operations on a signal (cycles, nodes, bus labels)
 │   │   ├── AppState.scala           # State of one open document, edit write-back & undo

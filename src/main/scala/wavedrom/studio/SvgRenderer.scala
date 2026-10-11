@@ -111,6 +111,11 @@ object SvgRenderer {
 
           sb.append(s"""<g class="signal-row" data-sig-idx="$sigIdx">""")
 
+          // The signal's own colour, when it has a valid one, replaces the
+          // default stroke of everything but the undefined (x) hatching
+          val sigColor = sig.color.flatMap(SignalColor.sanitize)
+          def stroke(default: String): String = sigColor.getOrElse(default)
+
           if (!sig.isSpacer) {
             for (c <- 0 until maxCycles) {
               val activeClass =
@@ -185,14 +190,14 @@ object SvgRenderer {
                 if (
                   yFrom != yTo && prevNorm != WaveState.Undefined && normToken != WaveState.Undefined
                 ) {
-                  val color =
-                    if (
-                      prevNorm == WaveState.DataBus || normToken == WaveState.DataBus
-                    ) "#38bdf8"
+                  val color = stroke(
+                    if (WaveState.isBus(normToken)) BusPalette.style(normToken).stroke
+                    else if (WaveState.isBus(prevNorm)) BusPalette.style(prevNorm).stroke
                     else if (
                       prevNorm == WaveState.HighZ || normToken == WaveState.HighZ
                     ) "#f59e0b"
                     else "#10b981"
+                  )
                   sb.append(
                     s"""<line x1="$cx" y1="$yFrom" x2="$cx" y2="$yTo" stroke="$color" stroke-width="2" />"""
                   )
@@ -204,21 +209,21 @@ object SvgRenderer {
             normToken match {
               case WaveState.High =>
                 sb.append(
-                  s"""<path d="M $cx $yHigh L ${cx + step} $yHigh" stroke="#10b981" stroke-width="2.5" fill="none" />"""
+                  s"""<path d="M $cx $yHigh L ${cx + step} $yHigh" stroke="${stroke("#10b981")}" stroke-width="2.5" fill="none" />"""
                 )
               case WaveState.Low =>
                 sb.append(
-                  s"""<path d="M $cx $yLow L ${cx + step} $yLow" stroke="#10b981" stroke-width="2.5" fill="none" />"""
+                  s"""<path d="M $cx $yLow L ${cx + step} $yLow" stroke="${stroke("#10b981")}" stroke-width="2.5" fill="none" />"""
                 )
               case WaveState.PosClock =>
                 val half = step / 2.0
                 sb.append(
-                  s"""<path d="M $cx $yLow L $cx $yHigh L ${cx + half} $yHigh L ${cx + half} $yLow L ${cx + step} $yLow" stroke="#818cf8" stroke-width="2" fill="none" />"""
+                  s"""<path d="M $cx $yLow L $cx $yHigh L ${cx + half} $yHigh L ${cx + half} $yLow L ${cx + step} $yLow" stroke="${stroke("#818cf8")}" stroke-width="2" fill="none" />"""
                 )
               case WaveState.NegClock =>
                 val half = step / 2.0
                 sb.append(
-                  s"""<path d="M $cx $yHigh L $cx $yLow L ${cx + half} $yLow L ${cx + half} $yHigh L ${cx + step} $yHigh" stroke="#818cf8" stroke-width="2" fill="none" />"""
+                  s"""<path d="M $cx $yHigh L $cx $yLow L ${cx + half} $yLow L ${cx + half} $yHigh L ${cx + step} $yHigh" stroke="${stroke("#818cf8")}" stroke-width="2" fill="none" />"""
                 )
               case WaveState.Undefined =>
                 sb.append(
@@ -226,19 +231,17 @@ object SvgRenderer {
                 )
               case WaveState.HighZ =>
                 sb.append(
-                  s"""<line x1="$cx" y1="$yMid" x2="${cx + step}" y2="$yMid" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 2" />"""
+                  s"""<line x1="$cx" y1="$yMid" x2="${cx + step}" y2="$yMid" stroke="${stroke("#f59e0b")}" stroke-width="2" stroke-dasharray="4 2" />"""
                 )
-              case WaveState.DataBus =>
+              case WaveState.DataBus | WaveState.ColoredBus(_) =>
+                val style = BusPalette.style(normToken)
                 val slope = Math.min(6.0, step / 4.0)
+                // A hold continues the segment, and with it the colour; a new
+                // bus token always starts a segment of its own
                 val isCont =
-                  (c > 0 && token == WaveState.Hold && resolvedStates(
-                    c - 1
-                  ) == WaveState.DataBus)
-                val isNextCont = (c + 1 < states.length && states(
-                  c + 1
-                ) == WaveState.Hold && resolvedStates(
-                  c + 1
-                ) == WaveState.DataBus)
+                  c > 0 && token == WaveState.Hold && WaveState.isBus(resolvedStates(c - 1))
+                val isNextCont =
+                  c + 1 < states.length && states(c + 1) == WaveState.Hold
                 val xRightPinch =
                   if (isNextCont) cx + step else cx + step - slope
 
@@ -253,7 +256,7 @@ object SvgRenderer {
                           else s"L $cx $yLow Z")
 
                 sb.append(
-                  s"""<path d="$pathD" fill="#0284c7" fill-opacity="0.2" stroke="#38bdf8" stroke-width="2" />"""
+                  s"""<path d="$pathD" fill="${style.fill}" fill-opacity="${style.fillOpacity}" stroke="${stroke(style.stroke)}" stroke-width="2" />"""
                 )
 
                 if (token != WaveState.Hold || c == 0) {
@@ -263,7 +266,7 @@ object SvgRenderer {
                     else ""
                   if (labelText.nonEmpty) {
                     sb.append(
-                      s"""<text x="${cx + (step / 2)}" y="${yMid + 4}" fill="#e0f2fe" font-size="10" font-weight="600" text-anchor="middle">${escapeHtml(
+                      s"""<text x="${cx + (step / 2)}" y="${yMid + 4}" fill="${style.text}" font-size="10" font-weight="600" text-anchor="middle">${escapeHtml(
                           labelText
                         )}</text>"""
                     )

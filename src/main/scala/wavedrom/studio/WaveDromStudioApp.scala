@@ -22,6 +22,7 @@ object WaveDromStudioApp {
   private val minZoom = 0.25
   private val maxZoom = 4.0
   private val stateKeys = "10pnxz=."
+  private val busColorKeys = "23456789"
   private val defaultFileName = "waveform.json"
 
   private val workspace = new Workspace(
@@ -347,6 +348,9 @@ object WaveDromStudioApp {
     } else if (!inField && !modifier && popover.isOpen && key.length == 1 && stateKeys.contains(key)) {
       e.preventDefault()
       popover.setState(key.charAt(0))
+    } else if (!inField && !modifier && popover.isOpen && key.length == 1 && busColorKeys.contains(key)) {
+      e.preventDefault()
+      popover.setBusColor(key.charAt(0))
     } else if (!inField && command && key == "z") {
       e.preventDefault()
       undo()
