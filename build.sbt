@@ -23,12 +23,12 @@ scalaJSLinkerConfig ~= {
    .withSourceMap(true)
 }
 
-lazy val launch = taskKey[Unit]("Compile and launch WaveDrom Studio in the browser")
+lazy val launch = taskKey[Unit]("Compile and launch Wavedrom Studio in the browser")
 launch := {
   val _ = (Compile / fastLinkJS).value
   val htmlPath = (baseDirectory.value / "index.html").toURI.toString
   val log = streams.value.log
-  log.info(s"Launching WaveDrom Studio at: $htmlPath")
+  log.info(s"Launching Wavedrom Studio at: $htmlPath")
   try {
     val isWindows = System.getProperty("os.name").toLowerCase.contains("win")
     val isMac = System.getProperty("os.name").toLowerCase.contains("mac")
