@@ -29,7 +29,13 @@ sbt test
 ```
 Runs the munit suites under Node.js.
 
-### 4. Launch the Studio
+### 4. Package a Release
+```bash
+sbt dist
+```
+Builds the optimised script and writes the two files a release needs, `index.html` and `main.js`, to `target/dist/wavedrom-plus-<version>/`, with a zip of that folder next to it. The folder runs opened straight from disk or served by any static web server; it needs no sbt, Node.js or internet access.
+
+### 5. Launch the Studio
 
 You can launch the studio using any of the following methods:
 
@@ -65,8 +71,11 @@ You can also open [index.html](index.html) directly in any web browser.
 - **Stack the panes**: the Stack panes / Side by side button puts the JSON editor above the waveform instead of beside it. Each layout remembers its own divider position.
 - **Zoom**: use the slider or the − / + buttons, or hold Ctrl and scroll over the waveform. The drawing scales as a whole, and the pane scrolls when it no longer fits.
 - **Edit a wave graphically**: click any cycle to open the cycle editor.
-  - Pick a state, or press its key (`1 0 p n x z = .`) while the editor is open.
+  - Pick a state, or press its key (`1 0 p n x z = .`) while the editor is open. Shift+P and Shift+N give `P` and `N`, the clocks drawn with an arrow on their working edge. Shift+H and Shift+L give `H` and `L`, a high or low level with an arrow on the edge that leads to it.
+  - Make a clock active on both edges: *Double-Edge Clock From Here* fills the signal from the clicked cycle on with `HLHL…` (standard WaveDrom notation). Each grid cycle is then half a clock period, with an arrow on every edge.
   - Set a node marker (multi-character names are supported) or, on a bus cycle, its label.
+  - Colour a bus: pick a swatch, or press `2`..`9` (WaveDrom's bus colour digits; `=` is the plain bus). The whole bus segment under the clicked cycle is recoloured, and a cycle that is not a bus becomes one.
+  - Colour a signal: pick a preset or a custom colour under *Signal Colour*, or *Default* to remove it. It is stored as an extra `"color"` key on the signal (`{ "name": "clk", "wave": "p...", "color": "#ff8800" }`, a hex value or CSS colour name), which standard WaveDrom ignores. It replaces black for every line of that signal, clock arrows included; bus fills still follow the bus digit.
   - Insert a hold cycle after the clicked one, or delete the cycle.
   - Click past the end of a short signal to extend it.
 - **Undo**: the Undo button, or Ctrl+Z outside the text editor, reverts graphical edits.
@@ -82,6 +91,7 @@ wavedrom-plus/
 ├── src/
 │   ├── main/scala/wavedrom/studio/
 │   │   ├── Model.scala              # AST & domain model (WaveState, SignalTrack, WaveDiagram, ...)
+│   │   ├── Colors.scala             # Bus colour palette & per-signal colour validation
 │   │   ├── WaveJsonCodec.scala      # WaveJSON parser & serializer
 │   │   ├── WaveEditor.scala         # Pure edit operations on a signal (cycles, nodes, bus labels)
 │   │   ├── AppState.scala           # State of one open document, edit write-back & undo

@@ -5,7 +5,7 @@ package wavedrom.studio
 object WaveEditor {
 
   private def isBusStart(c: Char): Boolean =
-    WaveState.fromChar(c) == WaveState.DataBus
+    WaveState.isBus(WaveState.fromChar(c))
 
   private def busStartsBefore(wave: String, pos: Int): Int =
     wave.take(pos).count(isBusStart)
@@ -56,6 +56,24 @@ object WaveEditor {
     track.copy(wave = wave, data = data)
   }
 
+  // Turns the signal, from `cycle` to its end, into a clock active on both
+  // edges: `HLHL...`, one grid cycle per half period. It starts on the level
+  // opposite to the one before it, so its first cycle opens with an edge.
+  def doubleEdgeClockFrom(track: SignalTrack, cycle: Int): SignalTrack = {
+    val end = Math.max(track.wave.length, cycle + 1)
+    val before = effectiveChar(track.wave, cycle - 1).map(WaveState.fromChar)
+    val startsLow = before.exists {
+      case WaveState.High | WaveState.HighArrow | WaveState.NegClock |
+          WaveState.NegClockArrow =>
+        true
+      case _ => false
+    }
+    (cycle until end).foldLeft(track) { (t, c) =>
+      val high = ((c - cycle) % 2 == 0) != startsLow
+      setCycle(t, c, if (high) 'H' else 'L')
+    }
+  }
+
   def insertHoldAfter(track: SignalTrack, cycle: Int): SignalTrack = {
     val wave = track.wave.padTo(cycle + 1, '.').patch(cycle + 1, ".", 0)
     val slots = nodeSlots(track.node)
@@ -102,6 +120,30 @@ object WaveEditor {
         val data = track.data.padTo(idx + 1, "").updated(idx, label.trim)
         track.copy(data = data.reverse.dropWhile(_.isEmpty).reverse)
     }
+
+  // --- Colours ------------------------------------------------------------
+
+  // The wave character of the bus segment covering `cycle`: `=` or `2`..`9`
+  def busToken(track: SignalTrack, cycle: Int): Option[Char] = {
+    val start = track.wave.lastIndexWhere(_ != '.', cycle)
+    if (cycle < track.wave.length && start >= 0 && isBusStart(track.wave(start)))
+      Some(track.wave(start))
+    else None
+  }
+
+  // Recolours the whole bus segment covering `cycle`; a cycle that is not on
+  // a bus becomes a one-cycle bus of that colour. `token` is `=` or `2`..`9`.
+  def setBusColor(track: SignalTrack, cycle: Int, token: Char): SignalTrack =
+    if (!isBusStart(token)) track
+    else if (busToken(track, cycle).isEmpty) setCycle(track, cycle, token)
+    else {
+      val start = track.wave.lastIndexWhere(_ != '.', cycle)
+      track.copy(wave = track.wave.updated(start, token))
+    }
+
+  // None, or a value that is not a colour, puts the signal back to default
+  def setSignalColor(track: SignalTrack, color: Option[String]): SignalTrack =
+    track.copy(color = color.flatMap(SignalColor.sanitize))
 
   // --- Node markers --------------------------------------------------------
 

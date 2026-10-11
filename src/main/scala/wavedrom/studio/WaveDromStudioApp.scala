@@ -22,6 +22,7 @@ object WaveDromStudioApp {
   private val minZoom = 0.25
   private val maxZoom = 4.0
   private val stateKeys = "10pnxz=."
+  private val busColorKeys = "23456789"
   private val defaultFileName = "waveform.json"
 
   private val workspace = new Workspace(
@@ -346,7 +347,16 @@ object WaveDromStudioApp {
       saveActive()
     } else if (!inField && !modifier && popover.isOpen && key.length == 1 && stateKeys.contains(key)) {
       e.preventDefault()
-      popover.setState(key.charAt(0))
+      // Shift+P and Shift+N give the clocks that carry an arrow
+      val arrowClock = e.shiftKey && (key == "p" || key == "n")
+      popover.setState(if (arrowClock) key.charAt(0).toUpper else key.charAt(0))
+    } else if (!inField && !modifier && popover.isOpen && e.shiftKey && (key == "h" || key == "l")) {
+      // Shift+H and Shift+L give the levels that carry an arrow
+      e.preventDefault()
+      popover.setState(key.charAt(0).toUpper)
+    } else if (!inField && !modifier && popover.isOpen && key.length == 1 && busColorKeys.contains(key)) {
+      e.preventDefault()
+      popover.setBusColor(key.charAt(0))
     } else if (!inField && command && key == "z") {
       e.preventDefault()
       undo()

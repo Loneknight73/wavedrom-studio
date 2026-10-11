@@ -179,6 +179,83 @@ class WaveJsonCodecSuite extends munit.FunSuite {
     assert(lines.contains(""""a~>b go""""), formatted)
   }
 
+  test("parse keeps the bus colour digits and reads the color key") {
+    val diagram = parseOk("""{ "signal": [
+      { "name": "bus", "wave": "x2.34=x", "data": ["A", "B", "C", "D"], "color": "#ff8800" },
+      { "name": "plain", "wave": "01", "color": 7 }
+    ] }""")
+    assertEquals(diagram.signals(0).wave, "x2.34=x")
+    assertEquals(diagram.signals(0).color, Some("#ff8800"))
+    assertEquals(
+      diagram.signals(0).parsedStates.map(WaveState.toChar).mkString,
+      "x2.34=x"
+    )
+    // Not a string, so not a colour
+    assertEquals(diagram.signals(1).color, None)
+  }
+
+  private val colorJson = """{
+    "signal": [
+      { "name": "clk", "wave": "p...", "period": 2 },
+      { "name": "bus", "wave": "x2.3", "data": ["A", "B"], "color": "#ff8800", "phase": 0.5 }
+    ],
+    "config": { "hscale": 2 }
+  }"""
+
+  private def signalObj(json: String, index: Int): js.Dynamic =
+    js.JSON.parse(json).signal.asInstanceOf[js.Array[js.Dynamic]](index)
+
+  test("patchSignal writes bus colour digits back into the wave") {
+    val doc = parseDocOk(colorJson)
+    val patched =
+      WaveJsonCodec.patchSignal(doc, 1, WaveEditor.setBusColor(doc.diagram.signals(1), 2, '9'))
+
+    val expected = js.JSON.parse(colorJson)
+    expected.signal.asInstanceOf[js.Array[js.Dynamic]](1).wave = "x9.3"
+    assertEquals(canonical(js.JSON.parse(patched)), canonical(expected))
+    assertEquals(WaveJsonCodec.parse(patched).map(_.signals(1).wave), Right("x9.3"))
+  }
+
+  test("patchSignal adds, changes and removes the color key, and nothing else") {
+    val doc = parseDocOk(colorJson)
+    val added = WaveJsonCodec.patchSignal(
+      doc,
+      0,
+      WaveEditor.setSignalColor(doc.diagram.signals(0), Some("#22D3EE"))
+    )
+    val expectedAdded = js.JSON.parse(colorJson)
+    expectedAdded.signal.asInstanceOf[js.Array[js.Dynamic]](0).color = "#22d3ee"
+    assertEquals(canonical(js.JSON.parse(added)), canonical(expectedAdded))
+    assertEquals(WaveJsonCodec.parse(added).map(_.signals(0).color), Right(Some("#22d3ee")))
+
+    val doc2 = parseDocOk(colorJson)
+    val changed = WaveJsonCodec.patchSignal(
+      doc2,
+      1,
+      WaveEditor.setSignalColor(doc2.diagram.signals(1), Some("red"))
+    )
+    assertEquals(signalObj(changed, 1).color.toString, "red")
+    assertEquals(signalObj(changed, 1).phase.asInstanceOf[Double], 0.5)
+
+    val doc3 = parseDocOk(colorJson)
+    val removed = WaveJsonCodec.patchSignal(
+      doc3,
+      1,
+      WaveEditor.setSignalColor(doc3.diagram.signals(1), None)
+    )
+    val expectedRemoved = js.JSON.parse(colorJson)
+    js.special.delete(expectedRemoved.signal.asInstanceOf[js.Array[js.Dynamic]](1), "color")
+    assertEquals(canonical(js.JSON.parse(removed)), canonical(expectedRemoved))
+    assertEquals(js.typeOf(signalObj(removed, 1).color), "undefined")
+  }
+
+  test("patchSignal leaves the color key alone when another field changes") {
+    val doc = parseDocOk(colorJson)
+    val patched =
+      WaveJsonCodec.patchSignal(doc, 1, doc.diagram.signals(1).copy(wave = "x2.."))
+    assertEquals(signalObj(patched, 1).color.toString, "#ff8800")
+  }
+
   test("patchSignal removes node and data when they become empty") {
     val doc = parseDocOk(richJson)
     val addr = doc.diagram.signals(2)

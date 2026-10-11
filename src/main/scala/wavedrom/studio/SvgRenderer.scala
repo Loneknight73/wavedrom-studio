@@ -4,6 +4,23 @@ import org.scalajs.dom.html
 
 object SvgRenderer {
 
+  // The colours of the classic WaveDrom skin. They are written into the SVG
+  // itself (never left to page CSS) so an exported drawing looks the same.
+  private object Palette {
+    val ink = "#000" // signal lines, names, bus outlines and labels
+    val paper = "#fff" // bus fill and the backing of labels drawn over waves
+    val grid = "#888" // dotted cycle boundaries
+    val tick = "#666" // cycle numbers
+    val edge = "#0041c4" // arrows and splines between nodes
+    val selectedFill = "#fff3bf" // node picked for an edge
+  }
+
+  private val fontFamily = "Helvetica, Arial, sans-serif"
+
+  // Space between a signal's name and its wave, and between nested braces
+  private val nameGap = 8
+  private val braceGap = 26
+
   def render(state: AppState, container: html.Div): Unit =
     container.innerHTML = renderToString(state)
 
@@ -23,48 +40,62 @@ object SvgRenderer {
           (diag.groups.map(_.depth) ++ diag.signals.map(_.depth)).maxOption
             .getOrElse(0)
         val groupIndent = maxGroupDepth * 22
-        val labelWidth = 120 + groupIndent
+        // The name column is as wide as the longest name (estimated, since
+        // text cannot be measured here), with the group braces just left of it
+        val nameWidth = diag.signals.map(_.name.length).maxOption.getOrElse(0) * 6.5
+        val braceLevels = diag.groups.map(_.depth).maxOption.map(_ + 1).getOrElse(0)
+        val braceSpace = if (braceLevels > 0) 20 + braceLevels * braceGap else 0
+        val labelWidth =
+          Math.max(120.0 + groupIndent, Math.ceil(nameWidth + nameGap + braceSpace + 8))
         val step = state.stepWidth
         val rowH = state.rowHeight
         val totalWidth = labelWidth + (maxCycles * step) + 60
         val totalHeight = (diag.signals.length * rowH) + 60
+        // Width of the slanted edge between two levels
+        val slant = Math.min(4.0, step / 4.0)
 
         val sb = new StringBuilder()
         sb.append(
           // The drawing is laid out at its natural size; zooming only changes
           // the size it is shown at, so everything scales together
-          s"""<svg width="${totalWidth * state.zoom}" height="${totalHeight * state.zoom}" viewBox="0 0 $totalWidth $totalHeight" xmlns="http://www.w3.org/2000/svg" class="wave-svg" font-family="'JetBrains Mono', monospace" style="user-select:none">"""
+          s"""<svg width="${totalWidth * state.zoom}" height="${totalHeight * state.zoom}" viewBox="0 0 $totalWidth $totalHeight" xmlns="http://www.w3.org/2000/svg" class="wave-svg" font-family="$fontFamily" style="user-select:none">"""
         )
 
-        // Defs Section
-        sb.append("""
+        // Defs Section. The arrowheads stop short of the node they point at,
+        // clear of the patch its name is drawn on
+        sb.append(s"""
       <defs>
-        <pattern id="hatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
-          <line x1="0" y1="0" x2="0" y2="8" stroke="#ef4444" stroke-width="2" opacity="0.4" />
+        <pattern id="hatch" width="4" height="4" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+          <line x1="2" y1="0" x2="2" y2="4" stroke="${Palette.ink}" stroke-width="0.6" />
         </pattern>
-        <marker id="arrowEnd" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+        <marker id="arrowEnd" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+          <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${Palette.edge}" />
         </marker>
-        <marker id="arrowStart" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M 10 1 L 0 5 L 10 9 z" fill="#38bdf8" />
+        <marker id="arrowStart" viewBox="0 0 10 10" refX="-6" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+          <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="${Palette.edge}" />
         </marker>
       </defs>
     """)
+
+        // Half a pixel off the grid, so 1px lines land on whole pixels
+        sb.append(
+          """<g transform="translate(0.5 0.5)" stroke-linecap="round" stroke-linejoin="round">"""
+        )
 
         // 1. Time Ruler
         sb.append("<g id=\"timeRuler\">")
         for (c <- 0 until maxCycles) {
           val cx = labelWidth + (c * step)
           sb.append(
-            s"""<line x1="$cx" y1="25" x2="$cx" y2="${totalHeight - 20}" stroke="#334155" stroke-dasharray="2 3" opacity="0.5" />"""
+            s"""<line x1="$cx" y1="25" x2="$cx" y2="${totalHeight - 20}" stroke="${Palette.grid}" stroke-width="0.5" stroke-dasharray="1 3" />"""
           )
           sb.append(
-            s"""<text x="${cx + (step / 2)}" y="18" fill="#64748b" font-size="10" text-anchor="middle" font-weight="600">$c</text>"""
+            s"""<text x="${cx + (step / 2)}" y="18" fill="${Palette.tick}" font-size="9" text-anchor="middle">$c</text>"""
           )
         }
         val endX = labelWidth + (maxCycles * step)
         sb.append(
-          s"""<line x1="$endX" y1="25" x2="$endX" y2="${totalHeight - 20}" stroke="#334155" stroke-dasharray="2 3" opacity="0.5" />"""
+          s"""<line x1="$endX" y1="25" x2="$endX" y2="${totalHeight - 20}" stroke="${Palette.grid}" stroke-width="0.5" stroke-dasharray="1 3" />"""
         )
         sb.append("</g>")
 
@@ -72,19 +103,21 @@ object SvgRenderer {
         if (diag.groups.nonEmpty) {
           sb.append("<g id=\"groupBrackets\">")
           diag.groups.foreach { g =>
-            val topY = 35 + (g.startSigIdx * rowH) + 6
-            val bottomY = 35 + ((g.endSigIdx + 1) * rowH) - 12
-            val bx = 16 + (g.depth * 20)
+            val topY = 35 + (g.startSigIdx * rowH) + 8
+            val bottomY = 35 + (g.endSigIdx * rowH) + 40
+            // The innermost brace hugs the names; outer ones step leftwards
+            val bx = labelWidth - nameGap - nameWidth - 12 -
+              (braceLevels - 1 - g.depth) * braceGap
             val midY = (topY + bottomY) / 2.0
             val r = Math.min(8.0, (bottomY - topY) / 4.0)
 
             val bracePath =
               s"M ${bx + r} $topY Q $bx $topY $bx ${topY + r} L $bx ${midY - r} Q $bx $midY ${bx - r} $midY Q $bx $midY $bx ${midY + r} L $bx ${bottomY - r} Q $bx $bottomY ${bx + r} $bottomY"
             sb.append(
-              s"""<path d="$bracePath" stroke="#38bdf8" stroke-width="2" fill="none" opacity="0.9" />"""
+              s"""<path d="$bracePath" stroke="${Palette.ink}" stroke-width="1" fill="none" />"""
             )
             sb.append(
-              s"""<text x="${bx - 8}" y="$midY" fill="#38bdf8" font-size="11" font-weight="700" text-anchor="middle" transform="rotate(-90 ${bx - 8} $midY)">${escapeHtml(
+              s"""<text x="${bx - 8}" y="$midY" fill="${Palette.ink}" font-size="11" text-anchor="middle" transform="rotate(-90 ${bx - 8} $midY)">${escapeHtml(
                   g.name
                 )}</text>"""
             )
@@ -106,22 +139,26 @@ object SvgRenderer {
           val yHigh = rowY + 12
           val yLow = rowY + 36
           val yMid = rowY + 24
-          val nameX =
-            15 + (sig.depth * 20) + (if (diag.groups.nonEmpty) 12 else 0)
 
           sb.append(s"""<g class="signal-row" data-sig-idx="$sigIdx">""")
+
+          // The signal's own colour, when it has a valid one, replaces black
+          // for every line of the row; fills and text keep their colours
+          val ink = sig.color.flatMap(SignalColor.sanitize).getOrElse(Palette.ink)
+          def stroke(d: String): String = line(d, ink)
 
           if (!sig.isSpacer) {
             for (c <- 0 until maxCycles) {
               val activeClass =
                 if (state.activeCycle.contains((sigIdx, c))) " active" else ""
               hitsSb.append(
-                s"""<rect class="cycle-hit$activeClass" data-sig="$sigIdx" data-cycle="$c" x="${labelWidth + (c * step)}" y="$rowY" width="$step" height="${rowH - 6}" fill="transparent" />"""
+                s"""<rect class="cycle-hit$activeClass" data-sig="$sigIdx" data-cycle="$c" x="${labelWidth + (c * step)}" y="${rowY + 6}" width="$step" height="${rowH - 4}" fill="transparent" />"""
               )
             }
           }
+          // Names sit to the left of the waves, flush against them
           sb.append(
-            s"""<text x="$nameX" y="${rowY + 28}" fill="#94a3b8" font-size="12" font-weight="600" font-family="monospace">${escapeHtml(
+            s"""<text x="${labelWidth - nameGap}" y="${rowY + 28}" fill="${Palette.ink}" font-size="11" text-anchor="end">${escapeHtml(
                 sig.name
               )}</text>"""
           )
@@ -140,17 +177,19 @@ object SvgRenderer {
                 NodeLocation(nx, ny, sigIdx, cycleIdx)
               )
 
+              // A name on a small patch of paper, as WaveDrom draws it; the
+              // patch is outlined only while the node is picked for an edge
               val isSelected = state.selectedNodeForEdge.contains(nodeName)
-              val badgeW = Math.max(18.0, nodeName.length * 6.5 + 8)
+              val badgeW = Math.max(10.0, nodeName.length * 5.5 + 4)
 
               nodesSb.append(s"""
             <g class="node-badge" data-node="${escapeHtml(nodeName)}">
-              <rect x="${nx - badgeW / 2}" y="${ny - 7}" width="$badgeW" height="14" rx="7" fill="${
-                  if (isSelected) "#f59e0b" else "#0284c7"
+              <rect x="${nx - badgeW / 2}" y="${ny - 6}" width="$badgeW" height="12" rx="2" fill="${
+                  if (isSelected) Palette.selectedFill else Palette.paper
                 }" stroke="${
-                  if (isSelected) "#fbbf24" else "#38bdf8"
-                }" stroke-width="1.5" />
-              <text x="$nx" y="${ny + 3}" fill="#ffffff" font-size="9" font-weight="700" text-anchor="middle">${escapeHtml(
+                  if (isSelected) Palette.edge else "none"
+                }" stroke-width="1" />
+              <text class="node-label" x="$nx" y="${ny + 3}" fill="${Palette.ink}" font-size="9" text-anchor="middle">${escapeHtml(
                   nodeName
                 )}</text>
             </g>
@@ -163,82 +202,123 @@ object SvgRenderer {
           val resolvedStates = collection.mutable.ArrayBuffer[WaveState]()
           var curState: WaveState = WaveState.Low
 
+          // `H` and `L` are resolved to their plain levels; the arrow is added
+          // on the cycle that carries the token itself
           states.foreach { st =>
-            if (st != WaveState.Hold) curState = st
+            if (st != WaveState.Hold) curState = WaveState.level(st)
             resolvedStates.append(curState)
           }
 
           var busDataCounter = 0
+          // Bus labels are drawn after the row's shapes, so the fill of a
+          // later cycle cannot cover a label centred over several cycles
+          val labelsSb = new StringBuilder()
 
           for (c <- states.indices) {
             val cx = labelWidth + (c * step)
             val token = states(c)
             val normToken = resolvedStates(c)
+            val prevNorm = if (c > 0) Some(resolvedStates(c - 1)) else None
+            val nextNorm = resolvedStates.lift(c + 1)
+            // How far into the cycle the slanted edge from the previous
+            // state reaches; a level starts where that edge ends
+            var lead = 0.0
 
-            // Vertical Transitions
-            if (c > 0) {
-              val prevNorm = resolvedStates(c - 1)
-              if (prevNorm != normToken) {
-                val yFrom = getYLevel(prevNorm, yHigh, yLow, yMid)
-                val yTo = getYLevel(normToken, yHigh, yLow, yMid)
+            // Transitions
+            prevNorm.filter(_ != normToken).foreach { prev =>
+              val yFrom = getYLevel(prev, yHigh, yLow, yMid)
+              val yTo = getYLevel(normToken, yHigh, yLow, yMid)
 
-                if (
-                  yFrom != yTo && prevNorm != WaveState.Undefined && normToken != WaveState.Undefined
-                ) {
-                  val color =
-                    if (
-                      prevNorm == WaveState.DataBus || normToken == WaveState.DataBus
-                    ) "#38bdf8"
-                    else if (
-                      prevNorm == WaveState.HighZ || normToken == WaveState.HighZ
-                    ) "#f59e0b"
-                    else "#10b981"
-                  sb.append(
-                    s"""<line x1="$cx" y1="$yFrom" x2="$cx" y2="$yTo" stroke="$color" stroke-width="2" />"""
-                  )
-                }
+              normToken match {
+                case WaveState.High | WaveState.Low | WaveState.HighZ =>
+                  if (prev == WaveState.Undefined) {
+                    // The hatched region closes onto the new level
+                    lead = slant
+                    sb.append(
+                      s"""<path d="M $cx $yHigh L ${cx + lead} $yTo L $cx $yLow Z" fill="url(#hatch)" stroke="none" />"""
+                    )
+                    sb.append(
+                      stroke(s"M $cx $yHigh L ${cx + lead} $yTo L $cx $yLow")
+                    )
+                  } else if (yFrom != yTo) {
+                    lead = slant
+                    sb.append(stroke(s"M $cx $yFrom L ${cx + lead} $yTo"))
+                    // `H` and `L` mark a full-height edge as an active one
+                    val fullEdge = yFrom == yHigh || yFrom == yLow
+                    if (fullEdge && token == WaveState.HighArrow)
+                      sb.append(clockArrow(cx + lead / 2, yMid, up = true, ink))
+                    else if (fullEdge && token == WaveState.LowArrow)
+                      sb.append(clockArrow(cx + lead / 2, yMid, up = false, ink))
+                  }
+                case WaveState.DataBus | WaveState.ColoredBus(_) =>
+                  // A bus starts from its pinch point on the boundary, so
+                  // the edge that reaches it stays vertical
+                  if (yFrom != yTo && prev != WaveState.Undefined) {
+                    sb.append(stroke(s"M $cx $yFrom L $cx $yTo"))
+                  }
+                case _ =>
+                // A clock begins with a full-height edge of its own, and an
+                // undefined region draws its own opening
               }
             }
 
             // Waveform Shapes
             normToken match {
               case WaveState.High =>
-                sb.append(
-                  s"""<path d="M $cx $yHigh L ${cx + step} $yHigh" stroke="#10b981" stroke-width="2.5" fill="none" />"""
-                )
+                sb.append(stroke(s"M ${cx + lead} $yHigh L ${cx + step} $yHigh"))
               case WaveState.Low =>
+                sb.append(stroke(s"M ${cx + lead} $yLow L ${cx + step} $yLow"))
+              case WaveState.PosClock | WaveState.PosClockArrow =>
+                val half = Math.floor(step / 2.0)
                 sb.append(
-                  s"""<path d="M $cx $yLow L ${cx + step} $yLow" stroke="#10b981" stroke-width="2.5" fill="none" />"""
+                  stroke(
+                    s"M $cx $yLow L $cx $yHigh L ${cx + half} $yHigh L ${cx + half} $yLow L ${cx + step} $yLow"
+                  )
                 )
-              case WaveState.PosClock =>
-                val half = step / 2.0
+                if (normToken == WaveState.PosClockArrow)
+                  sb.append(clockArrow(cx, yMid, up = true, ink))
+              case WaveState.NegClock | WaveState.NegClockArrow =>
+                val half = Math.floor(step / 2.0)
                 sb.append(
-                  s"""<path d="M $cx $yLow L $cx $yHigh L ${cx + half} $yHigh L ${cx + half} $yLow L ${cx + step} $yLow" stroke="#818cf8" stroke-width="2" fill="none" />"""
+                  stroke(
+                    s"M $cx $yHigh L $cx $yLow L ${cx + half} $yLow L ${cx + half} $yHigh L ${cx + step} $yHigh"
+                  )
                 )
-              case WaveState.NegClock =>
-                val half = step / 2.0
-                sb.append(
-                  s"""<path d="M $cx $yHigh L $cx $yLow L ${cx + half} $yLow L ${cx + half} $yHigh L ${cx + step} $yHigh" stroke="#818cf8" stroke-width="2" fill="none" />"""
-                )
+                if (normToken == WaveState.NegClockArrow)
+                  sb.append(clockArrow(cx, yMid, up = false, ink))
               case WaveState.Undefined =>
+                // Hatching between a top and a bottom line. It opens from
+                // the level of whatever came before, and pinches shut where
+                // a bus follows; a level that follows closes it instead.
+                val busSlope = Math.min(6.0, step / 4.0)
+                val xEnd = cx + step
+                val opening = prevNorm.filter(_ != WaveState.Undefined).map { prev =>
+                  val w = if (WaveState.isBus(prev)) busSlope else slant
+                  (s"M $cx ${getYLevel(prev, yHigh, yLow, yMid)} L ${cx + w}", cx + w)
+                }
+                val (open, xStart) = opening.getOrElse((s"M $cx", cx))
+                val pinched = nextNorm.exists(WaveState.isBus)
+                val xFlat = if (pinched) xEnd - busSlope else xEnd
+                val close = if (pinched) s" L $xEnd $yMid" else ""
+                val top = s"$open $yHigh L $xFlat $yHigh$close"
+                val bottom = s"$open $yLow L $xFlat $yLow$close"
+
                 sb.append(
-                  s"""<rect x="$cx" y="$yHigh" width="$step" height="${yLow - yHigh}" fill="url(#hatch)" stroke="#ef4444" stroke-width="1.5" />"""
+                  s"""<path d="$top L $xFlat $yLow L $xStart $yLow Z" fill="url(#hatch)" stroke="none" />"""
                 )
+                sb.append(stroke(top))
+                sb.append(stroke(bottom))
               case WaveState.HighZ =>
-                sb.append(
-                  s"""<line x1="$cx" y1="$yMid" x2="${cx + step}" y2="$yMid" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 2" />"""
-                )
-              case WaveState.DataBus =>
+                sb.append(stroke(s"M ${cx + lead} $yMid L ${cx + step} $yMid"))
+              case WaveState.DataBus | WaveState.ColoredBus(_) =>
+                val style = BusPalette.style(normToken)
                 val slope = Math.min(6.0, step / 4.0)
+                // A hold continues the value, and with it the colour; a new
+                // bus token always starts a value of its own
                 val isCont =
-                  (c > 0 && token == WaveState.Hold && resolvedStates(
-                    c - 1
-                  ) == WaveState.DataBus)
-                val isNextCont = (c + 1 < states.length && states(
-                  c + 1
-                ) == WaveState.Hold && resolvedStates(
-                  c + 1
-                ) == WaveState.DataBus)
+                  c > 0 && token == WaveState.Hold && WaveState.isBus(resolvedStates(c - 1))
+                val isNextCont =
+                  c + 1 < states.length && states(c + 1) == WaveState.Hold
                 val xRightPinch =
                   if (isNextCont) cx + step else cx + step - slope
 
@@ -252,9 +332,23 @@ object SvgRenderer {
                 pathD += (if (!isCont) s"L ${cx + slope} $yLow Z"
                           else s"L $cx $yLow Z")
 
+                // The outline is drawn apart from the fill and left open on
+                // the sides where the value runs on, so a held value reads
+                // as one box rather than one box per cycle
+                var outlineD =
+                  if (!isCont)
+                    s"M ${cx + slope} $yLow L $cx $yMid L ${cx + slope} $yHigh L $xRightPinch $yHigh "
+                  else s"M $cx $yHigh L $xRightPinch $yHigh "
+                outlineD += (if (!isNextCont)
+                               s"L ${cx + step} $yMid L $xRightPinch $yLow "
+                             else s"M ${cx + step} $yLow ")
+                outlineD += (if (!isCont) s"L ${cx + slope} $yLow"
+                             else s"L $cx $yLow")
+
                 sb.append(
-                  s"""<path d="$pathD" fill="#0284c7" fill-opacity="0.2" stroke="#38bdf8" stroke-width="2" />"""
+                  s"""<path class="bus-fill" d="$pathD" fill="${style.fill}" stroke="none" />"""
                 )
+                sb.append(stroke(outlineD))
 
                 if (token != WaveState.Hold || c == 0) {
                   val labelText =
@@ -262,23 +356,26 @@ object SvgRenderer {
                       sig.data(busDataCounter)
                     else ""
                   if (labelText.nonEmpty) {
-                    sb.append(
-                      s"""<text x="${cx + (step / 2)}" y="${yMid + 4}" fill="#e0f2fe" font-size="10" font-weight="600" text-anchor="middle">${escapeHtml(
+                    // Centred over the whole value, however long it is held
+                    val span =
+                      1 + states.drop(c + 1).takeWhile(_ == WaveState.Hold).length
+                    labelsSb.append(
+                      s"""<text class="bus-label" x="${cx + (span * step / 2.0)}" y="${yMid + 4}" fill="${style.text}" font-size="11" text-anchor="middle">${escapeHtml(
                           labelText
                         )}</text>"""
                     )
                   }
                   busDataCounter += 1
                 }
-              case WaveState.Hold => // Handled via resolved state
+              case _ => // Hold and arrowed levels are resolved above
             }
           }
 
+          sb.append(labelsSb.toString)
           sb.append("</g>")
         }
 
         sb.append("<g id=\"cycleHits\">").append(hitsSb.toString).append("</g>")
-        sb.append("<g id=\"nodeMarkers\">").append(nodesSb.toString).append("</g>")
 
         // 4. Render Edges / Connection Arrows
         if (diag.edges.nonEmpty) {
@@ -313,12 +410,10 @@ object SvgRenderer {
                   ) {
                     pathD = s"M $x1 $y1 L $x2 $y2"
                   } else if (edgeType == "~>" || edgeType == "<~>") {
+                    // WaveDrom's spline: it leaves and arrives horizontally
                     val dx = x2 - x1
-                    val dy = y2 - y1
-                    val curveOff =
-                      Math.min(50.0, Math.max(25.0, Math.abs(dx) * 0.3))
-                    val c1x = x1 + dx * 0.25; val c1y = y1 - curveOff
-                    val c2x = x2 - dx * 0.25; val c2y = y2 - curveOff
+                    val c1x = x1 + dx * 0.7; val c1y = y1
+                    val c2x = x1 + dx * 0.3; val c2y = y2
 
                     pathD = s"M $x1 $y1 C $c1x $c1y, $c2x $c2y, $x2 $y2"
                     midX = 0.125 * x1 + 0.375 * c1x + 0.375 * c2x + 0.125 * x2
@@ -326,13 +421,19 @@ object SvgRenderer {
                   }
 
                   sb.append(
-                    s"""<path d="$pathD" fill="none" stroke="#38bdf8" stroke-width="1.8" $markerStart$markerEnd />"""
+                    s"""<path d="$pathD" fill="none" stroke="${Palette.edge}" stroke-width="1" $markerStart$markerEnd />"""
                   )
 
                   if (labelText != null && labelText.trim.nonEmpty) {
+                    // The label sits on the line, on a patch of paper
+                    val label = labelText.trim
+                    val labelW = label.length * 6.0 + 6
                     sb.append(
-                      s"""<text x="$midX" y="${midY + 3.5}" fill="#f472b6" font-size="11" font-weight="700" text-anchor="middle">${escapeHtml(
-                          labelText.trim
+                      s"""<rect x="${midX - labelW / 2}" y="${midY - 7}" width="$labelW" height="14" fill="${Palette.paper}" />"""
+                    )
+                    sb.append(
+                      s"""<text x="$midX" y="${midY + 3.5}" fill="${Palette.ink}" font-size="11" text-anchor="middle">${escapeHtml(
+                          label
                         )}</text>"""
                     )
                   }
@@ -343,10 +444,26 @@ object SvgRenderer {
           sb.append("</g>")
         }
 
+        // Node names go on top of the edges that meet at them, as in WaveDrom
+        sb.append("<g id=\"nodeMarkers\">").append(nodesSb.toString).append("</g>")
+
+        sb.append("</g>")
         sb.append("</svg>")
         sb.toString()
     }
 
+  }
+
+  // A hairline, the only kind of line a wave is drawn with
+  private def line(d: String, color: String): String =
+    s"""<path d="$d" stroke="$color" stroke-width="1" fill="none" />"""
+
+  // The arrowhead WaveDrom puts on the working edge of a `P` or `N` clock:
+  // a solid triangle half way up the edge, pointing the way the edge goes
+  private def clockArrow(x: Double, yMid: Double, up: Boolean, color: String): String = {
+    val tip = if (up) yMid - 4 else yMid + 4
+    val base = if (up) yMid + 3 else yMid - 3
+    s"""<path class="clock-arrow" d="M ${x - 3.5} $base L ${x + 3.5} $base L $x $tip Z" fill="$color" stroke="none" />"""
   }
 
   private def getYLevel(
@@ -355,9 +472,9 @@ object SvgRenderer {
       yLow: Double,
       yMid: Double
   ): Double = state match {
-    case WaveState.High | WaveState.NegClock => yHigh
-    case WaveState.Low | WaveState.PosClock  => yLow
-    case _                                   => yMid
+    case WaveState.High | WaveState.NegClock | WaveState.NegClockArrow => yHigh
+    case WaveState.Low | WaveState.PosClock | WaveState.PosClockArrow  => yLow
+    case _                                                             => yMid
   }
 
   private def escapeHtml(str: String): String = {
