@@ -170,7 +170,7 @@ object WaveEditor {
   private def formatNodes(slots: Vector[String]): String = {
     val trimmed = slots.reverse.dropWhile(_.isEmpty).reverse
     if (trimmed.forall(_.length <= 1))
-      // Standard WaveDrom form: one character per cycle
+      // The usual form: one character per cycle
       trimmed.map(s => if (s.isEmpty) "." else s).mkString
     else {
       // Multi-character names: space-separated tokens, runs of dots for gaps

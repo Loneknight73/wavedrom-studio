@@ -77,12 +77,12 @@ case class SignalTrack(
     node: String = "",
     data: Vector[String] = Vector.empty,
     depth: Int = 0,
-    // Extension to WaveJSON: the stroke colour of this signal's waveform
+    // An addition of Wavedrom Studio, not in WaveDrom: the stroke colour of this signal's waveform
     color: Option[String] = None
 ) {
   def parsedStates: Vector[WaveState] = wave.map(WaveState.fromChar).toVector
 
-  // An empty `{}` entry in WaveJSON: a blank row between signals
+  // An empty `{}` entry: a blank row between signals
   def isSpacer: Boolean = name.isEmpty && wave.isEmpty
 }
 

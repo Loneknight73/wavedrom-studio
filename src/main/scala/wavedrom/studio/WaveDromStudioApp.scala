@@ -230,7 +230,7 @@ object WaveDromStudioApp {
     loadFromEditor()
   }
 
-  // Re-indents the JSON in the compact WaveJSON layout (one signal per line),
+  // Re-indents the JSON in the compact layout (one signal per line),
   // the same one graphical edits write. Undoable, unlike typing, because it replaces the
   // textarea's value and so discards the browser's own undo history.
   private def formatJson(): Unit = {

@@ -41,7 +41,7 @@ That is all. There is nothing to install, and the studio works offline. Edge or 
 
 ### In the JSON editor
 
-Diagrams are written in WaveJSON, WaveDrom's format. Each signal has a name and a wave, one character per clock cycle:
+Diagrams are written in JSON, in a format very similar to WaveDrom's WaveJSON, but with no attempt at compatibility. Each signal has a name and a wave, one character per clock cycle:
 
 ```json
 {
@@ -53,9 +53,9 @@ Diagrams are written in WaveJSON, WaveDrom's format. Each signal has a name and 
 }
 ```
 
-The bar at the bottom of the window lists the most common wave characters. [WaveJSON in Wavedrom Studio](docs/wavejson.md) describes everything the studio understands, including groups, colours, nodes and arrows.
+The bar at the bottom of the window lists the most common wave characters. [The JSON format of Wavedrom Studio](docs/json-format.md) describes everything the studio understands, including groups, colours, nodes and arrows, and where it differs from WaveDrom.
 
-**Format JSON** lays the document out in the usual WaveJSON style.
+**Format JSON** lays the document out compactly, with one signal per line.
 
 ### With the mouse
 
@@ -150,7 +150,7 @@ wavedrom-studio/
 │   │   ├── SplitPane.scala          # Resizable divider between the panes
 │   │   └── WaveDromStudioApp.scala  # Entry point and UI wiring
 │   └── test/scala/wavedrom/studio/  # munit test suites
-├── docs/                  # WaveJSON reference and README images
+├── docs/                  # JSON format reference and README images
 ├── build.sbt              # Build definition, with the launch and dist tasks
 ├── project/               # sbt version and the Scala.js plugin
 ├── index.html             # The page: layout, styles and controls

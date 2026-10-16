@@ -19,7 +19,7 @@ object FileIO {
 
   private def pickerTypes = js.Array(
     js.Dynamic.literal(
-      description = "WaveJSON",
+      description = "JSON",
       accept = js.Dynamic.literal("application/json" -> js.Array(".json"))
     )
   )

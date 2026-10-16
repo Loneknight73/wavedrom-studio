@@ -35,7 +35,7 @@ object BusPalette {
 }
 
 // The optional per-signal colour: the `color` key of a signal object, which
-// is an extension to WaveJSON that standard WaveDrom ignores.
+// is an addition of Wavedrom Studio; WaveDrom has no such key.
 object SignalColor {
   // Offered as swatches in the cycle editor: the hues of the bus palette, in
   // the same order, strengthened just enough for a thin line to show on white

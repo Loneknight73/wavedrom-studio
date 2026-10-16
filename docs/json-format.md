@@ -1,6 +1,10 @@
-# WaveJSON in Wavedrom Studio
+# The JSON format of Wavedrom Studio
 
-Wavedrom Studio reads the WaveJSON format of [WaveDrom](https://wavedrom.com/). This page lists the parts of the format the studio draws, and the one key it adds. For the full format, see the [WaveDrom tutorial](https://wavedrom.com/tutorial.html).
+Wavedrom Studio documents are JSON files. Their format is very similar to the WaveJSON format of [WaveDrom](https://wavedrom.com/): a `signal` list of signals, each with a `wave` string, and an optional `edge` list. The two share most of their notation, and a simple diagram may work in both.
+
+There is no attempt at compatibility, though. Wavedrom Studio supports only part of what WaveDrom does, may interpret some of it differently, and adds a few things of its own. Do not assume that a file written here will work in WaveDrom, or the other way round. [Where it differs](#where-it-differs-from-wavedrom) lists the differences known today. For WaveDrom's own format, see the [WaveDrom tutorial](https://wavedrom.com/tutorial.html).
+
+This page describes what Wavedrom Studio understands.
 
 A document is a JSON object with a `signal` list and an optional `edge` list:
 
@@ -51,7 +55,7 @@ Each character of `wave` is one cycle on the grid.
 | `x` | Undefined, drawn hatched |
 | `z` | High impedance, drawn as a line at mid height |
 | `=` | Bus value, white. It takes the next label from `data`. |
-| `2` … `9` | Bus value in one of WaveDrom's eight colours. It takes the next label from `data`. |
+| `2` … `9` | Bus value in one of eight colours, taken from the ones WaveDrom uses. It takes the next label from `data`. |
 | `.` | Hold: the previous cycle's state continues |
 
 Upper and lower case mean the same thing, except for `P`, `N`, `H` and `L`, which carry arrows. An unknown character is drawn as low.
@@ -74,7 +78,7 @@ A bus label is centred over its value and the hold cycles that follow it, so `"=
 
 ## Signal colour
 
-`color` is not part of standard WaveDrom, which ignores it, so a document that uses it still renders elsewhere. It replaces black for every line of the signal, clock arrows included. Bus fills keep the colour of their digit.
+`color` is an addition of Wavedrom Studio. WaveDrom has no such key, and nothing here says how other tools treat it. It replaces black for every line of the signal, clock arrows included. Bus fills keep the colour of their digit.
 
 The value is a hex colour (`#f60`, `#ff6600`) or a CSS colour name (`orange`). An invalid value is ignored.
 
@@ -86,7 +90,7 @@ The value is a hex colour (`#f60`, `#ff6600`) or a CSS colour name (`orange`). A
 
 `node` places named markers on cycles, which `edge` then connects with arrows.
 
-In `node`, each `.` is an empty cycle, and any other run of characters is one marker on one cycle: in `"..a.b"` the marker `a` is on cycle 2 and `b` on cycle 4. For names longer than one character, separate the parts with spaces: `"..req_start ack"` puts `req_start` on cycle 2 and `ack` on cycle 3.
+In `node`, each `.` is an empty cycle, and any other run of characters is one marker on one cycle: in `"..a.b"` the marker `a` is on cycle 2 and `b` on cycle 4. For names longer than one character, which is an addition of Wavedrom Studio, separate the parts with spaces: `"..req_start ack"` puts `req_start` on cycle 2 and `ack` on cycle 3.
 
 Each entry of `edge` is a string `from<arrow>to`, followed by an optional label:
 
@@ -106,4 +110,12 @@ The label, if any, is drawn halfway along the line.
 
 ## Other keys
 
-Other top-level keys, such as `head`, `foot` and `config`, are kept in the document when it is edited and saved, but the studio does not draw them yet.
+Keys the studio does not use, such as `head`, `foot` and `config` at the top level, and `period` and `phase` on a signal, are kept in the document when it is edited and saved, but they have no effect on the drawing.
+
+## Where it differs from WaveDrom
+
+This list covers what is known today. It is not a complete comparison, and WaveDrom itself changes over time.
+
+- **Added here:** the `color` key of a signal, and multi-character node names separated by spaces.
+- **Not supported:** the keys listed under [Other keys](#other-keys), which are kept but do not affect the drawing. Wave characters that are not in the table above, such as `|` for a gap, or `u` and `d`, are drawn as low. Edge arrows other than the five listed above are not drawn.
+- **Possibly different:** how wide a cycle is, how labels are placed, and the finer details of the drawing follow this program's own renderer, so a diagram can look different here and in WaveDrom.
