@@ -1,135 +1,162 @@
 # Wavedrom Studio
 
-An interactive timing diagram studio inspired by **WaveDrom**, implemented in **Scala 3** and **Scala.js** (`scalajs-dom`).
+An interactive editor for timing diagrams that runs entirely in the browser. You write the diagram as JSON or edit it with the mouse, and see the waveform change as you go.
+
+Wavedrom Studio is based on [WaveDrom](https://wavedrom.com/) ([GitHub](https://github.com/wavedrom/wavedrom)), the open-source timing diagram renderer by Aliaksei Chapyzhenka. It reads and writes the same WaveJSON format and keeps WaveDrom's classic look. Diagrams made with it can be used with WaveDrom itself and the other tools that support WaveJSON. Wavedrom Studio is an independent project and is not affiliated with WaveDrom.
+
+![Wavedrom Studio with a diagram open](docs/images/overview.png)
 
 ---
 
-## 🚀 Quick Start
+# For users
 
-### 1. Prerequisites
-- **Java**: JDK 17+ (GraalVM or OpenJDK)
-- **sbt**: 1.10.x+
-- **Node.js**: v18+ (optional, for local static web server)
+## Getting it
 
-### 2. Compile
-To compile and link the Scala.js project:
-```bash
-sbt fastLinkJS
+1. Download `wavedrom-studio-<version>.zip` from the [Releases](https://github.com/Loneknight73/wavedrom-studio/releases) page.
+2. Unzip it anywhere.
+3. Open `index.html` in a web browser.
+
+That is all. There is nothing to install, and the studio works offline. Edge or Chrome is recommended, because in those browsers Save writes straight back to the file you opened.
+
+## Features
+
+- **Live JSON editing**: the waveform is redrawn as you type, and the status light shows whether the JSON is valid.
+- **Graphical editing**: click any cycle of a wave to open the cycle editor. Every graphical edit is written back into the JSON, leaving the rest of the document as it was, and can be undone.
+- **Multiple tabs**: each tab is one diagram with its own JSON, zoom and undo history. A dot marks a tab with unsaved changes.
+- **Open and save files**: open one or more `.json` files at once, each in its own tab, and save them back.
+- **Built-in samples**: a handshake with arrows, SPI, I²C, DDR, groups and colours, to start from or learn from.
+- **Resizable panes**: drag the divider between the JSON editor and the waveform. The panes can sit side by side or one above the other.
+- **Zoom**: from the toolbar or with Ctrl and the mouse wheel.
+- **Classic WaveDrom look**: thin black lines, hatched undefined regions and blue arrows, on white.
+- **Colours**: buses in WaveDrom's eight colours, and a colour of your choice for any whole signal.
+- **Clocks with arrows**: arrows on the working edge of a clock, and clocks active on both edges.
+- **Nodes and arrows**: name points on the waves and connect them with labelled arrows.
+- **SVG export**: copy the diagram to the clipboard or download it as a self-contained SVG file.
+
+![The panes stacked, with coloured signals and buses](docs/images/stacked.png)
+
+## Editing a diagram
+
+### In the JSON editor
+
+Diagrams are written in WaveJSON, WaveDrom's format. Each signal has a name and a wave, one character per clock cycle:
+
+```json
+{
+  "signal": [
+    { "name": "clk",  "wave": "p......." },
+    { "name": "req",  "wave": "0.1..0.." },
+    { "name": "data", "wave": "x.=.=.x.", "data": ["A", "B"] }
+  ]
+}
 ```
-This generates `target/scala-3.3.4/wavedrom-studio-fastopt/main.js`.
 
-For continuous recompilation while editing code:
+The bar at the bottom of the window lists the most common wave characters. [WaveJSON in Wavedrom Studio](docs/wavejson.md) describes everything the studio understands, including groups, colours, nodes and arrows.
+
+**Format JSON** lays the document out in the usual WaveJSON style.
+
+### With the mouse
+
+Click a cycle of any wave to open the cycle editor.
+
+![The cycle editor](docs/images/cycle-editor.png)
+
+From there you can:
+
+- **Change the state** of the cycle: high, low, clock, undefined, high impedance, bus or hold. While the editor is open, you can also press the state's key: `1 0 p n x z = .`, or Shift+P, Shift+N, Shift+H and Shift+L for the forms with arrows.
+- **Set a node marker** on the cycle, to connect it to others with arrows.
+- **Set the label** of a bus value.
+- **Colour a bus**: pick a swatch, or press `2` to `9`.
+- **Colour the whole signal**: pick a preset or any colour, or Default to go back to black.
+- **Make a double-edge clock**: fill the signal from this cycle on with a clock active on both edges. Each grid cycle is then half a clock period.
+- **Insert** a hold cycle after this one, or **delete** this cycle.
+
+Clicking past the end of a short signal extends it.
+
+### Keyboard shortcuts
+
+| Keys | Action |
+|---|---|
+| Ctrl+O | Open files |
+| Ctrl+S | Save the current tab |
+| Ctrl+Z | Undo a graphical edit (outside the JSON editor) |
+| Ctrl + mouse wheel | Zoom the waveform |
+| Double-click the divider | Reset the pane sizes |
+
+## Saving and exporting
+
+- **Save** writes the current tab's JSON. In Edge and Chrome it saves back to the file you opened, or asks where to save a new one. In other browsers it downloads the file.
+- **Copy SVG** puts the diagram on the clipboard, and **Download SVG** saves it as a file. The SVG is self-contained, so it can go straight into documents and web pages.
+
+---
+
+# For developers
+
+This part is for building Wavedrom Studio from source. The studio is written in [Scala 3](https://www.scala-lang.org/) and compiled to JavaScript with [Scala.js](https://www.scala-js.org/).
+
+## Prerequisites
+
+- **JDK** 17 or later
+- **sbt** 1.10 or later
+- **Node.js** 18 or later, to run the tests and, optionally, the local web server
+
+## Getting the source
+
 ```bash
-sbt ~fastLinkJS
+git clone https://github.com/Loneknight73/wavedrom-studio.git
+cd wavedrom-studio
 ```
 
-### 3. Test
-```bash
-sbt test
-```
-Runs the munit suites under Node.js.
+## Building and running
 
-### 4. Package a Release
+| Command | What it does |
+|---|---|
+| `sbt fastLinkJS` | Compiles the development build to `target/scala-3.3.4/wavedrom-studio-fastopt/main.js`, which `index.html` loads. |
+| `sbt ~fastLinkJS` | The same, rebuilding on every change to the source. Reload the page to see it. |
+| `sbt launch` | Builds, then opens `index.html` in the default browser. |
+| `npm start` | Serves the folder at <http://localhost:3000> and opens the browser. Build first. |
+| `./launch.ps1` | On Windows, builds and launches in one step. |
+| `sbt test` | Runs the test suites under Node.js. |
+
+After a build you can also open `index.html` directly from disk.
+
+## Packaging a release
+
 ```bash
 sbt dist
 ```
-Builds the optimised script and writes the two files a release needs, `index.html` and `main.js`, to `target/dist/wavedrom-studio-<version>/`, with a zip of that folder next to it. The folder runs opened straight from disk or served by any static web server; it needs no sbt, Node.js or internet access.
 
-### 5. Launch the Studio
+This builds the optimised script and writes the files of a release to `target/dist/wavedrom-studio-<version>/`, with a zip of that folder next to it. The release holds only `index.html`, `main.js` and `LICENSE`, and needs nothing else to run. The version comes from `build.sbt`.
 
-You can launch the studio using any of the following methods:
-
-#### Option A: Direct sbt launch task
-```bash
-sbt launch
-```
-*Compiles Scala.js and opens `index.html` in your default browser.*
-
-#### Option B: Local Web Server (Node.js)
-```bash
-npm start
-# or: node server.js
-```
-*Starts a zero-dependency static server at [http://localhost:3000](http://localhost:3000) and opens your browser.*
-
-#### Option C: PowerShell Script (Windows)
-```powershell
-./launch.ps1
-```
-
-#### Option D: Direct Browser File
-You can also open [index.html](index.html) directly in any web browser.
-
----
-
-## ✏️ Using the Studio
-
-- **Tabs**: each tab is one diagram with its own JSON, zoom and undo history. `+` adds an empty one, `×` closes it, and a dot marks unsaved changes.
-- **Open**: the Open… button or Ctrl+O loads one or more `.json` files, each in a new tab. Picking a built-in sample also opens a new tab.
-- **Save**: the Save button or Ctrl+S writes the current tab's JSON. In Edge and Chrome it saves back to the opened file (or asks where to save a new one); in other browsers it downloads the file.
-- **Resize the panes**: drag the divider between the JSON editor and the waveform. Double-click it to reset.
-- **Stack the panes**: the Stack panes / Side by side button puts the JSON editor above the waveform instead of beside it. Each layout remembers its own divider position.
-- **Zoom**: use the slider or the − / + buttons, or hold Ctrl and scroll over the waveform. The drawing scales as a whole, and the pane scrolls when it no longer fits.
-- **Edit a wave graphically**: click any cycle to open the cycle editor.
-  - Pick a state, or press its key (`1 0 p n x z = .`) while the editor is open. Shift+P and Shift+N give `P` and `N`, the clocks drawn with an arrow on their working edge. Shift+H and Shift+L give `H` and `L`, a high or low level with an arrow on the edge that leads to it.
-  - Make a clock active on both edges: *Double-Edge Clock From Here* fills the signal from the clicked cycle on with `HLHL…` (standard WaveDrom notation). Each grid cycle is then half a clock period, with an arrow on every edge.
-  - Set a node marker (multi-character names are supported) or, on a bus cycle, its label.
-  - Colour a bus: pick a swatch, or press `2`..`9` (WaveDrom's bus colour digits; `=` is the plain bus). The whole bus segment under the clicked cycle is recoloured, and a cycle that is not a bus becomes one.
-  - Colour a signal: pick a preset or a custom colour under *Signal Colour*, or *Default* to remove it. It is stored as an extra `"color"` key on the signal (`{ "name": "clk", "wave": "p...", "color": "#ff8800" }`, a hex value or CSS colour name), which standard WaveDrom ignores. It replaces black for every line of that signal, clock arrows included; bus fills still follow the bus digit.
-  - Insert a hold cycle after the clicked one, or delete the cycle.
-  - Click past the end of a short signal to extend it.
-- **Undo**: the Undo button, or Ctrl+Z outside the text editor, reverts graphical edits.
-
-Graphical edits are written back into the JSON without touching anything else in the document.
-
----
-
-## 📁 Project Structure
+## Project layout
 
 ```
 wavedrom-studio/
 ├── src/
 │   ├── main/scala/wavedrom/studio/
-│   │   ├── Model.scala              # AST & domain model (WaveState, SignalTrack, WaveDiagram, ...)
-│   │   ├── Colors.scala             # Bus colour palette & per-signal colour validation
-│   │   ├── WaveJsonCodec.scala      # WaveJSON parser & serializer
-│   │   ├── WaveEditor.scala         # Pure edit operations on a signal (cycles, nodes, bus labels)
-│   │   ├── AppState.scala           # State of one open document, edit write-back & undo
+│   │   ├── Model.scala              # Domain model: wave states, signals, diagrams
+│   │   ├── WaveJsonCodec.scala      # WaveJSON parser, write-back and formatter
+│   │   ├── SvgRenderer.scala        # SVG rendering of a diagram
+│   │   ├── Colors.scala             # Bus palette and signal colour validation
+│   │   ├── WaveEditor.scala         # Edit operations on one signal
+│   │   ├── AppState.scala           # One open document: text, edits, undo
 │   │   ├── Workspace.scala          # The open documents (tabs)
 │   │   ├── Samples.scala            # Built-in sample diagrams
 │   │   ├── FileIO.scala             # Opening and saving local files
 │   │   ├── TabBar.scala             # Tab strip
-│   │   ├── SvgRenderer.scala        # SVG waveform render engine
-│   │   ├── CyclePopover.scala       # Cycle editor popover
-│   │   ├── SplitPane.scala          # Draggable divider between the panes
-│   │   └── WaveDromStudioApp.scala  # Scala.js entry point & UI controller
-│   └── test/scala/wavedrom/studio/  # munit suites
-├── build.sbt              # sbt configuration (Scala 3.3.4, Scala.js 1.18.2, scalajs-dom, munit)
-├── project/
-│   ├── build.properties   # sbt version declaration (1.10.7)
-│   └── plugins.sbt        # sbt-scalajs plugin definition
-├── index.html             # Studio frontend UI (editor, waveform viewer, zoom, context menu)
-├── server.js              # Lightweight zero-dependency local HTTP server
-├── package.json           # npm convenience commands
-└── launch.ps1             # PowerShell one-click compile & launch script
+│   │   ├── CyclePopover.scala       # Cycle editor
+│   │   ├── SplitPane.scala          # Resizable divider between the panes
+│   │   └── WaveDromStudioApp.scala  # Entry point and UI wiring
+│   └── test/scala/wavedrom/studio/  # munit test suites
+├── docs/                  # WaveJSON reference and README images
+├── build.sbt              # Build definition, with the launch and dist tasks
+├── project/               # sbt version and the Scala.js plugin
+├── index.html             # The page: layout, styles and controls
+├── server.js              # Zero-dependency local web server
+├── package.json           # npm shortcuts
+└── launch.ps1             # Windows build-and-launch script
 ```
 
----
+## License
 
-## 🛠️ Key Enhancements & Fixes Applied
-
-During the setup of the compilation and runtime infrastructure, several issues in the initial AI-generated code were corrected:
-
-1. **Syntax Fixes in Source**:
-   - `val dataArr = js.Arrayjs.Any` corrected to `val dataArr = js.Array[js.Any]()`.
-   - Broken `replace(""", """)` in `escapeHtml` corrected to proper HTML entity replacement.
-2. **SVG Path Coordinate Spacing**:
-   - String interpolations like `M $cx$yLow` and `L $x1$y1` lacked whitespace between X and Y coordinates (producing invalid paths like `M 120.071.0`). Added proper spacing across all waveform and edge connectors.
-3. **Regex Pattern Fix**:
-   - `edgePattern` had `?$$` which caused regex end-of-string matching to fail. Corrected to `?$`.
-4. **Group Header Parsing Warning**:
-   - Changed `arr(0).isInstanceOf[String]` to `js.typeOf(arr(0)) == "string"` to prevent Scala 3 compiler warnings on `js.Any` runtime types.
-5. **Interactive Lifecycle & Main Entrypoint**:
-   - Added standard `main(args: Array[String])` overload alongside `@JSExport def main()`.
-   - Added DOM ready-state check so live reload and direct injection initialize reliably.
-   - Wired interactive context menu (`#cycleMenu`), zoom step width controller, and node selection handlers.
+Wavedrom Studio is released under the [MIT License](LICENSE).

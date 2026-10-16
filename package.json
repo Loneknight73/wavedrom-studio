@@ -1,6 +1,7 @@
 {
   "name": "wavedrom-studio",
   "version": "0.0.1",
+  "license": "MIT",
   "description": "Interactive WaveDrom timing diagram studio powered by Scala 3 & Scala.js",
   "scripts": {
     "build": "sbt fastLinkJS",

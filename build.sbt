@@ -4,6 +4,7 @@ import scala.util.control.NonFatal
 
 name := "wavedrom-studio"
 version := "0.0.1"
+licenses := Seq("MIT" -> url("https://opensource.org/licenses/MIT"))
 
 scalaVersion := "3.3.4"
 
@@ -44,7 +45,8 @@ launch := {
 }
 
 // The bare minimum needed to run the studio: index.html plus the optimised
-// script, in target/dist/wavedrom-studio-<version>/ and zipped next to it.
+// script and the LICENSE that the MIT terms require copies to carry, in
+// target/dist/wavedrom-studio-<version>/ and zipped next to it.
 // The folder works opened straight from disk or from any static web server.
 lazy val dist = taskKey[File]("Package index.html and the optimised script for release")
 dist := {
@@ -69,8 +71,10 @@ dist := {
     sys.error("index.html: expected exactly one <script src=\"target/.../main.js\"> tag")
   IO.write(outDir / "index.html", devScript.replaceFirstIn(page, """<script src="main.js"></script>"""))
 
+  IO.copyFile(baseDirectory.value / "LICENSE", outDir / "LICENSE")
+
   val zip = distDir / s"$releaseName.zip"
-  val files = Seq("index.html", "main.js")
+  val files = Seq("index.html", "main.js", "LICENSE")
   IO.zip(files.map(f => (outDir / f) -> s"$releaseName/$f"), zip, None)
 
   files.foreach(f => log.info(f"  $f%-12s ${(outDir / f).length / 1024}%5d KB"))
