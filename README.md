@@ -2,7 +2,9 @@
 
 An interactive editor for timing diagrams that runs entirely in the browser. You write the diagram as JSON or edit it with the mouse, and see the waveform change as you go.
 
-Wavedrom Studio is based on [WaveDrom](https://wavedrom.com/) ([GitHub](https://github.com/wavedrom/wavedrom)), the open-source timing diagram renderer by Aliaksei Chapyzhenka. It reads and writes the same WaveJSON format and keeps WaveDrom's classic look. Diagrams made with it can be used with WaveDrom itself and the other tools that support WaveJSON. Wavedrom Studio is an independent project and is not affiliated with WaveDrom.
+Wavedrom Studio is based on [WaveDrom](https://wavedrom.com/) ([GitHub](https://github.com/wavedrom/wavedrom)), the open-source timing diagram renderer. It reads and writes files in JSON format, and has a similar look to WaveDrom's, but tries to add some more features to it.  
+This program has been written by the AI in Scala3 JS, with me mostly suggesting the features required.
+Wavedrom Studio is, however, an independent project and is not affiliated with WaveDrom.
 
 ![Wavedrom Studio with a diagram open](docs/images/overview.png)
 
