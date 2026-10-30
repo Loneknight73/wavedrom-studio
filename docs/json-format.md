@@ -44,8 +44,10 @@ Each character of `wave` is one cycle on the grid.
 
 | Character | State |
 |---|---|
-| `0` `l` | Low |
-| `1` `h` | High |
+| `0` | Low |
+| `1` | High |
+| `l` | Low, entered by a vertical edge like a clock's |
+| `h` | High, entered by a vertical edge like a clock's |
 | `L` | Low, with an arrow on the falling edge that leads to it |
 | `H` | High, with an arrow on the rising edge that leads to it |
 | `p` | Clock, rising edge at the start of the cycle |
@@ -57,8 +59,13 @@ Each character of `wave` is one cycle on the grid.
 | `=` | Bus value, white. It takes the next label from `data`. |
 | `2` … `9` | Bus value in one of eight colours, taken from the ones WaveDrom uses. It takes the next label from `data`. |
 | `.` | Hold: the previous cycle's state continues |
+| `\|` | Gap: a hold with a break drawn over it, for time that is left out |
+| `u` | Pull-up: a dotted line at the high level |
+| `d` | Pull-down: a dotted line at the low level |
 
 Upper and lower case mean the same thing, except for `P`, `N`, `H` and `L`, which carry arrows. An unknown character is drawn as low.
+
+The edge into `0` or `1` is slanted, while the edge into `l`, `h`, `L` or `H` is vertical, as in a clock. Into `u` and `d` it is a curve, as of a resistor charging a line; out of them it is a slanted edge.
 
 A bus label is centred over its value and the hold cycles that follow it, so `"=..="` draws the first label over three cycles.
 
@@ -117,5 +124,5 @@ Keys the studio does not use, such as `head`, `foot` and `config` at the top lev
 This list covers what is known today. It is not a complete comparison, and WaveDrom itself changes over time.
 
 - **Added here:** the `color` key of a signal, and multi-character node names separated by spaces.
-- **Not supported:** the keys listed under [Other keys](#other-keys), which are kept but do not affect the drawing. Wave characters that are not in the table above, such as `|` for a gap, or `u` and `d`, are drawn as low. Edge arrows other than the five listed above are not drawn.
+- **Not supported:** the keys listed under [Other keys](#other-keys), which are kept but do not affect the drawing. Edge arrows other than the five listed above are not drawn.
 - **Possibly different:** how wide a cycle is, how labels are placed, and the finer details of the drawing follow this program's own renderer, so a diagram can look different here and in WaveDrom.

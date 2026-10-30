@@ -5,10 +5,10 @@ class WaveStateSuite extends munit.FunSuite {
   test("fromChar maps every wave token") {
     val expected = Map(
       '1' -> WaveState.High,
-      'h' -> WaveState.High,
+      'h' -> WaveState.SharpHigh,
       'H' -> WaveState.HighArrow,
       '0' -> WaveState.Low,
-      'l' -> WaveState.Low,
+      'l' -> WaveState.SharpLow,
       'L' -> WaveState.LowArrow,
       'p' -> WaveState.PosClock,
       'P' -> WaveState.PosClockArrow,
@@ -19,7 +19,10 @@ class WaveStateSuite extends munit.FunSuite {
       'z' -> WaveState.HighZ,
       'Z' -> WaveState.HighZ,
       '=' -> WaveState.DataBus,
-      '.' -> WaveState.Hold
+      '.' -> WaveState.Hold,
+      '|' -> WaveState.Gap,
+      'u' -> WaveState.PullUp,
+      'd' -> WaveState.PullDown
     )
     expected.foreach { case (c, state) =>
       assertEquals(WaveState.fromChar(c), state, s"token '$c'")
@@ -37,9 +40,20 @@ class WaveStateSuite extends munit.FunSuite {
   }
 
   test("toChar round-trips the canonical tokens") {
-    "10pnxz=.23456789".foreach { c =>
+    "10hlpnxz=.|ud23456789".foreach { c =>
       assertEquals(WaveState.toChar(WaveState.fromChar(c)), c)
     }
+  }
+
+  test("sharp levels are levels with a vertical edge, and gaps are holds") {
+    assertEquals(WaveState.level(WaveState.SharpHigh), WaveState.High)
+    assertEquals(WaveState.level(WaveState.SharpLow), WaveState.Low)
+    assert(WaveState.isSharp(WaveState.SharpHigh))
+    assert(WaveState.isSharp(WaveState.LowArrow))
+    assert(!WaveState.isSharp(WaveState.High))
+    assert(WaveState.isHold(WaveState.Hold))
+    assert(WaveState.isHold(WaveState.Gap))
+    assert(!WaveState.isHold(WaveState.PullUp))
   }
 
   test("arrow clocks keep their case") {

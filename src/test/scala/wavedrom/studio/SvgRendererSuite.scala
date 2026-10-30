@@ -298,9 +298,9 @@ class SvgRendererSuite extends munit.FunSuite {
     // No edge leads into the first cycle, so five edges carry an arrow
     assertEquals(occurrences(arrows, "clock-arrow"), 5)
 
-    val plain = render("""{ "signal": [ { "name": "ck", "wave": "101010" } ] }""")
+    val plain = render("""{ "signal": [ { "name": "ck", "wave": "hlhlhl" } ] }""")
     assertEquals(occurrences(plain, "clock-arrow"), 0)
-    // Apart from the arrows the two are drawn alike
+    // Apart from the arrows, and the vertical edges, the two are drawn alike
     val arrow = """<path class="clock-arrow"[^>]*/>""".r
     def shapes(svg: String): String = arrow.replaceAllIn(svg.split("<g id=\"cycleHits\"")(0), "")
     assertEquals(shapes(arrows), shapes(plain))
@@ -309,5 +309,50 @@ class SvgRendererSuite extends munit.FunSuite {
   test("an arrowed level without an edge, or held, has no arrow") {
     assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "1H.." } ] }"""), "clock-arrow"), 0)
     assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "0H..L." } ] }"""), "clock-arrow"), 2)
+  }
+
+  // The path data of every stroke of the first signal row
+  private def paths(svg: String): Vector[String] =
+    """ d="([^"]+)"""".r.findAllMatchIn(svg.split("<g id=\"cycleHits\"")(0).split("signal-row").last).map(_.group(1)).toVector
+
+  test("a gap draws a break over the held line") {
+    val svg = render("""{ "signal": [ { "name": "a", "wave": "1|0" } ] }""")
+    assertEquals(occurrences(svg, """<g class="gap">"""), 1)
+    assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "1.0" } ] }"""), "class=\"gap\""), 0)
+    // The line runs on at the level it held, so there is no edge before the gap
+    assert(!paths(svg).exists(_.startsWith("M 160.0 ")), paths(svg).toString)
+  }
+
+  test("a gap lets a bus and its label run on") {
+    val svg = render("""{ "signal": [ { "name": "a", "wave": "=|=", "data": ["A", "B"] } ] }""")
+    assertEquals(occurrences(svg, "class=\"bus-label\""), 2)
+    assertEquals(occurrences(svg, "class=\"gap\""), 1)
+  }
+
+  test("u and d draw a dotted level in the colour of the signal") {
+    val svg = render("""{ "signal": [ { "name": "a", "wave": "u.", "color": "#f00" } ] }""")
+    assertEquals(occurrences(svg, """stroke-dasharray="1 3" fill="none""""), 2)
+    assert(svg.contains("""stroke="#f00" stroke-width="1" stroke-dasharray="1 3""""))
+    assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "1." } ] }"""), """stroke-dasharray="1 3" fill="none""""), 0)
+  }
+
+  test("the edge into a pulled level is a curve, out of it a slanted edge") {
+    val into = render("""{ "signal": [ { "name": "a", "wave": "0u" } ] }""")
+    assertEquals(paths(into).count(_.contains(" C ")), 1)
+    val out = render("""{ "signal": [ { "name": "a", "wave": "u0" } ] }""")
+    assert(!paths(out).exists(_.contains(" C ")))
+    assert(paths(out).exists(_.matches("M [0-9.]+ 47 L [0-9.]+ 71")), paths(out).toString)
+  }
+
+  test("the edge into h is vertical, the edge into 1 slanted") {
+    def edge(wave: String): String =
+      paths(render(s"""{ "signal": [ { "name": "a", "wave": "$wave" } ] }""")).find(_.matches("M 165 [0-9.]+ L [0-9.]+ [0-9.]+")).get
+    def vertical(d: String) = {
+      val m = """M ([0-9.]+) [0-9.]+ L ([0-9.]+) [0-9.]+""".r.findFirstMatchIn(d).get
+      m.group(1) == m.group(2)
+    }
+    assert(vertical(edge("0h")), edge("0h"))
+    assert(vertical(edge("1l")), edge("1l"))
+    assert(!vertical(edge("01")), edge("01"))
   }
 }

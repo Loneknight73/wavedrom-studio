@@ -205,7 +205,7 @@ object SvgRenderer {
           // `H` and `L` are resolved to their plain levels; the arrow is added
           // on the cycle that carries the token itself
           states.foreach { st =>
-            if (st != WaveState.Hold) curState = WaveState.level(st)
+            if (!WaveState.isHold(st)) curState = WaveState.level(st)
             resolvedStates.append(curState)
           }
 
@@ -230,7 +230,8 @@ object SvgRenderer {
               val yTo = getYLevel(normToken, yHigh, yLow, yMid)
 
               normToken match {
-                case WaveState.High | WaveState.Low | WaveState.HighZ =>
+                case WaveState.High | WaveState.Low | WaveState.HighZ |
+                    WaveState.PullUp | WaveState.PullDown =>
                   if (prev == WaveState.Undefined) {
                     // The hatched region closes onto the new level
                     lead = slant
@@ -241,8 +242,15 @@ object SvgRenderer {
                       stroke(s"M $cx $yHigh L ${cx + lead} $yTo L $cx $yLow")
                     )
                   } else if (yFrom != yTo) {
-                    lead = slant
-                    sb.append(stroke(s"M $cx $yFrom L ${cx + lead} $yTo"))
+                    if (WaveState.isPull(normToken)) {
+                      // The curve takes the whole cycle; the dotted level follows
+                      lead = step
+                      sb.append(stroke(pullCurve(cx, step, yHigh, yLow, yFrom, yTo)))
+                    } else {
+                      // h, l, H and L switch at once, as a clock does
+                      lead = if (WaveState.isSharp(token)) 0.0 else slant
+                      sb.append(stroke(s"M $cx $yFrom L ${cx + lead} $yTo"))
+                    }
                     // `H` and `L` mark a full-height edge as an active one
                     val fullEdge = yFrom == yHigh || yFrom == yLow
                     if (fullEdge && token == WaveState.HighArrow)
@@ -310,15 +318,20 @@ object SvgRenderer {
                 sb.append(stroke(bottom))
               case WaveState.HighZ =>
                 sb.append(stroke(s"M ${cx + lead} $yMid L ${cx + step} $yMid"))
+              case WaveState.PullUp | WaveState.PullDown =>
+                if (lead < step) {
+                  val y = getYLevel(normToken, yHigh, yLow, yMid)
+                  sb.append(dotted(s"M ${cx + lead} $y L ${cx + step} $y", ink))
+                }
               case WaveState.DataBus | WaveState.ColoredBus(_) =>
                 val style = BusPalette.style(normToken)
                 val slope = Math.min(6.0, step / 4.0)
                 // A hold continues the value, and with it the colour; a new
                 // bus token always starts a value of its own
                 val isCont =
-                  c > 0 && token == WaveState.Hold && WaveState.isBus(resolvedStates(c - 1))
+                  c > 0 && WaveState.isHold(token) && WaveState.isBus(resolvedStates(c - 1))
                 val isNextCont =
-                  c + 1 < states.length && states(c + 1) == WaveState.Hold
+                  c + 1 < states.length && WaveState.isHold(states(c + 1))
                 val xRightPinch =
                   if (isNextCont) cx + step else cx + step - slope
 
@@ -350,7 +363,7 @@ object SvgRenderer {
                 )
                 sb.append(stroke(outlineD))
 
-                if (token != WaveState.Hold || c == 0) {
+                if (!WaveState.isHold(token) || c == 0) {
                   val labelText =
                     if (busDataCounter < sig.data.length)
                       sig.data(busDataCounter)
@@ -358,7 +371,7 @@ object SvgRenderer {
                   if (labelText.nonEmpty) {
                     // Centred over the whole value, however long it is held
                     val span =
-                      1 + states.drop(c + 1).takeWhile(_ == WaveState.Hold).length
+                      1 + states.drop(c + 1).takeWhile(WaveState.isHold).length
                     labelsSb.append(
                       s"""<text class="bus-label" x="${cx + (span * step / 2.0)}" y="${yMid + 4}" fill="${style.text}" font-size="11" text-anchor="middle">${escapeHtml(
                           labelText
@@ -369,6 +382,9 @@ object SvgRenderer {
                 }
               case _ => // Hold and arrowed levels are resolved above
             }
+
+            if (token == WaveState.Gap)
+              sb.append(gapGlyph(cx + step / 2.0, yHigh, ink))
           }
 
           sb.append(labelsSb.toString)
@@ -458,6 +474,47 @@ object SvgRenderer {
   private def line(d: String, color: String): String =
     s"""<path d="$d" stroke="$color" stroke-width="1" fill="none" />"""
 
+  // The line of a pulled-up or pulled-down level
+  private def dotted(d: String, color: String): String =
+    s"""<path d="$d" stroke="$color" stroke-width="1" stroke-dasharray="1 3" fill="none" />"""
+
+  // The curve into a pulled level, after WaveDrom's 0mu, 1md and zmu bricks
+  // (a 20 by 20 grid, 0 at the high level). From the opposite level it is an
+  // RC-style charge; from mid height (z, x, a bus) it is the shallower zm form.
+  private def pullCurve(
+      cx: Double,
+      step: Double,
+      yHigh: Double,
+      yLow: Double,
+      yFrom: Double,
+      yTo: Double
+  ): String = {
+    val sx = step / 20.0
+    val sy = (yLow - yHigh) / 20.0
+    def p(x: Double, y: Double) = s"${cx + x * sx} ${yHigh + y * sy}"
+    val up = yTo == yHigh
+    if (yFrom == yHigh || yFrom == yLow) {
+      // 0mu runs from the bottom to the top; 1md is its mirror image
+      val (y0, y1) = if (up) (20.0, 0.0) else (0.0, 20.0)
+      s"M ${p(0, y0)} L ${p(3, y0)} C ${p(7, 10)}, ${p(10.1, y1)}, ${p(20, y1)}"
+    } else {
+      val (y1, c1, c2) = if (up) (0.0, 5.0, 0.0) else (20.0, 15.0, 20.0)
+      s"M ${p(0, 10)} L ${p(7, 10)} C ${p(10, c1)}, ${p(15, c2)}, ${p(20, y1)}"
+    }
+  }
+
+  // The break WaveDrom draws over a `|` cycle, centred on x: a patch of
+  // paper hides the line, and two curved strokes mark the gap
+  private def gapGlyph(x: Double, yHigh: Double, color: String): String = {
+    def p(gx: Double, gy: Double) = s"${x + gx} ${yHigh + gy * 1.2}"
+    val patch =
+      s"M ${p(7, -2)} L ${p(3, -2)} C ${p(-2, -2)}, ${p(-2, 22)}, ${p(-7, 22)} L ${p(-3, 22)} C ${p(2, 22)}, ${p(2, -2)}, ${p(7, -2)} Z"
+    s"""<g class="gap"><path d="$patch" fill="${Palette.paper}" stroke="none" />${line(
+        s"M ${p(-7, 22)} C ${p(-2, 22)}, ${p(-2, -2)}, ${p(3, -2)}",
+        color
+      )}${line(s"M ${p(-3, 22)} C ${p(2, 22)}, ${p(2, -2)}, ${p(7, -2)}", color)}</g>"""
+  }
+
   // The arrowhead WaveDrom puts on the working edge of a `P` or `N` clock:
   // a solid triangle half way up the edge, pointing the way the edge goes
   private def clockArrow(x: Double, yMid: Double, up: Boolean, color: String): String = {
@@ -472,8 +529,12 @@ object SvgRenderer {
       yLow: Double,
       yMid: Double
   ): Double = state match {
-    case WaveState.High | WaveState.NegClock | WaveState.NegClockArrow => yHigh
-    case WaveState.Low | WaveState.PosClock | WaveState.PosClockArrow  => yLow
+    case WaveState.High | WaveState.PullUp | WaveState.NegClock |
+        WaveState.NegClockArrow =>
+      yHigh
+    case WaveState.Low | WaveState.PullDown | WaveState.PosClock |
+        WaveState.PosClockArrow =>
+      yLow
     case _                                                             => yMid
   }
 

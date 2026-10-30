@@ -65,7 +65,7 @@ Click a cycle of any wave to open the cycle editor.
 
 From there you can:
 
-- **Change the state** of the cycle: high, low, clock, undefined, high impedance, bus or hold. While the editor is open, you can also press the state's key: `1 0 p n x z = .`, or Shift+P, Shift+N, Shift+H and Shift+L for the forms with arrows.
+- **Change the state** of the cycle: high, low, clock, undefined, high impedance, bus, hold, gap or pull-up and pull-down. While the editor is open, you can also press the state's key: `1 0 p n x z = . | u d`, or Shift+P, Shift+N, Shift+H and Shift+L for the forms with arrows.
 - **Set a node marker** on the cycle, to connect it to others with arrows.
 - **Set the label** of a bus value.
 - **Colour a bus**: pick a swatch, or press `2` to `9`.
