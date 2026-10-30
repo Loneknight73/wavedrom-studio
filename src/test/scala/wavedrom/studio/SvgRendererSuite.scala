@@ -180,6 +180,36 @@ class SvgRendererSuite extends munit.FunSuite {
     assert(svg.contains(">grant</text>"))
   }
 
+  test("every drawn edge gets a wide hit path that carries its index in the list") {
+    val svg = render("""{ "signal": [
+      { "name": "req", "wave": "01.0", "node": ".a.." },
+      { "name": "ack", "wave": "0.10", "node": "..b." }
+    ], "edge": ["a->b", "a->missing", "b~>a later", "nonsense"] }""")
+    val hitPaths = """<path class="edge-hit edge-ui" data-edge="(\d+)"""".r
+      .findAllMatchIn(svg).map(_.group(1)).toVector
+    assertEquals(hitPaths, Vector("0", "2"))
+    assert(svg.contains("""stroke="transparent" stroke-width="10" pointer-events="stroke""""), svg)
+    // The label of the third edge is a handle for it too
+    assertEquals(occurrences(svg, """<rect class="edge-hit edge-ui" data-edge="2""""), 1)
+    // The visible arrows stay out of the way of the mouse
+    assert(svg.contains("""id="edgesLayer" pointer-events="none""""), svg)
+    assert(svg.contains("""id="edgePreview""""), svg)
+  }
+
+  test("an edge whose nodes do not exist has no hit path") {
+    val svg = render("""{ "signal": [
+      { "name": "req", "wave": "01.0", "node": ".a.." }
+    ], "edge": ["a->missing"] }""")
+    assert(!svg.contains("""data-edge="""), svg)
+  }
+
+  test("node badges carry their place for the arrow being drawn") {
+    val svg = render("""{ "signal": [
+      { "name": "req", "wave": "01.0", "node": ".a.." }
+    ] }""")
+    assert("""data-node="a" data-x="[\d.]+" data-y="[\d.]+"""".r.findFirstIn(svg).isDefined, svg)
+  }
+
   test("skips an edge whose nodes do not exist") {
     val svg = render("""{ "signal": [
       { "name": "req", "wave": "01.0", "node": ".a.." }

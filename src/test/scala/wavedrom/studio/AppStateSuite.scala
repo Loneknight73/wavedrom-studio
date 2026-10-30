@@ -41,6 +41,36 @@ class AppStateSuite extends munit.FunSuite {
     assertEquals(stateWith("01").applyEdit(5, WaveEditor.setCycle(_, 0, '1')), None)
   }
 
+  test("applyEdgeEdit updates the diagram and can be undone") {
+    val state = stateWith("01")
+    val before = state.jsonText
+    val ab = EdgeShape.shapes.find(_.token == "->").get
+
+    val returned = state.applyEdgeEdit(EdgeEditor.add(_, "a", ab, "b", Some("go")))
+    assertEquals(state.diagram.get.edges, Vector("a->b go"))
+    assertEquals(returned, Some(state.jsonText))
+    assert(state.canUndo)
+
+    state.applyEdgeEdit(EdgeEditor.delete(_, 0))
+    assertEquals(state.diagram.get.edges, Vector.empty[String])
+    assert(!state.jsonText.contains("edge"), state.jsonText)
+
+    state.undo()
+    assertEquals(state.diagram.get.edges, Vector("a->b go"))
+    state.undo()
+    assertEquals(state.jsonText, before)
+  }
+
+  test("applyEdgeEdit ignores an edit that changes nothing") {
+    val state = stateWith("01")
+    val before = state.jsonText
+    assertEquals(state.applyEdgeEdit(identity), None)
+    assertEquals(state.applyEdgeEdit(EdgeEditor.delete(_, 0)), None)
+    assertEquals(state.jsonText, before)
+    assert(!state.canUndo)
+    assertEquals(new AppState().applyEdgeEdit(_ :+ "a->b"), None)
+  }
+
   test("colour edits are written into the JSON and can be undone") {
     val state = stateWith("x=.x")
     val before = state.jsonText

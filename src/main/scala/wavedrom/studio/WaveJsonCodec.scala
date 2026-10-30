@@ -216,6 +216,18 @@ object WaveJsonCodec {
     format(doc.root)
   }
 
+  // Sets the document's `edge` list (creating it, or dropping it when empty)
+  // and returns the whole document as JSON. Everything else is left untouched.
+  def patchEdges(doc: WaveDocument, edges: Vector[String]): String = {
+    if (edges.nonEmpty) {
+      val arr = js.Array[js.Any]()
+      edges.foreach(e => arr.push(e))
+      doc.root.edge = arr
+    } else js.special.delete(doc.root, "edge")
+
+    format(doc.root)
+  }
+
   // Pretty-prints in the usual WaveJSON layout: objects that hold only plain
   // values (a signal, `head`, `config`...) stay on one line.
   def format(value: js.Any): String = formatValue(value, 0)

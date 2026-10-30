@@ -42,6 +42,15 @@ object WaveDromStudioApp {
   private lazy val sampleSelect = byId[html.Select]("sampleSelect")
   private lazy val fileInput = byId[html.Input]("fileInput")
   private lazy val popover = new CyclePopover(applyEdit)
+  private lazy val arrowPopover = new ArrowPopover(startDrawing, updateEdge, deleteEdge)
+
+  // The node an arrow popover was opened on, with its place in the drawing
+  private case class SourceNode(name: String, x: Double, y: Double)
+  // An arrow being drawn: its style and label are chosen, its end is the mouse
+  private case class Drawing(source: SourceNode, shape: EdgeShape.Shape, label: Option[String])
+
+  private var pendingSource: Option[SourceNode] = None
+  private var drawing: Option[Drawing] = None
   private lazy val tabBar =
     new TabBar(byId[html.Element]("tabBar"), selectTab, closeTab, () => addTab(AppState.open(Samples.blank)))
 
@@ -60,6 +69,7 @@ object WaveDromStudioApp {
     jsonEditor.addEventListener("input", (_: dom.Event) => loadFromEditor())
 
     svgContainer.addEventListener("click", onSvgClick _)
+    svgContainer.addEventListener("mousemove", onSvgMouseMove _)
     svgContainer.addEventListener("wheel", onSvgWheel _)
     dom.document.addEventListener("click", onDocumentClick _)
     dom.document.addEventListener("keydown", onKeyDown _)
@@ -82,7 +92,7 @@ object WaveDromStudioApp {
     byId[html.Button]("clearSelectionBtn").addEventListener(
       "click",
       (_: dom.Event) => {
-        state.selectedNodeForEdge = None
+        endEdgeUi()
         render()
       }
     )
@@ -103,6 +113,7 @@ object WaveDromStudioApp {
 
   private def loadFromEditor(): Unit = {
     popover.hide()
+    endEdgeUi()
     state.activeCycle = None
     state.updateFromText(jsonEditor.value) match {
       case Right(_) =>
@@ -128,11 +139,13 @@ object WaveDromStudioApp {
   }
 
   private def selectTab(index: Int): Unit = {
+    endEdgeUi()
     workspace.select(index)
     showActiveTab()
   }
 
   private def addTab(tab: AppState): Unit = {
+    endEdgeUi()
     workspace.add(tab)
     showActiveTab()
   }
@@ -142,6 +155,7 @@ object WaveDromStudioApp {
       val discard = !tab.isDirty ||
         dom.window.confirm(s"Close ${tab.title} without saving its changes?")
       if (discard) {
+        endEdgeUi()
         workspace.close(index)
         showActiveTab()
       }
@@ -275,10 +289,121 @@ object WaveDromStudioApp {
     }
   }
 
-  private def toggleNodeSelection(nodeName: String): Unit = {
-    state.selectedNodeForEdge =
-      if (state.selectedNodeForEdge.contains(nodeName)) None else Some(nodeName)
+  private def applyEdgeEdit(edit: Vector[String] => Vector[String]): Unit = {
+    state.applyEdgeEdit(edit).foreach(jsonEditor.value = _)
+    loadFromEditor()
+  }
+
+  private def updateEdge(index: Int, shape: EdgeShape.Shape, label: Option[String]): Unit =
+    applyEdgeEdit(EdgeEditor.update(_, index, shape, label))
+
+  private def deleteEdge(index: Int): Unit =
+    applyEdgeEdit(EdgeEditor.delete(_, index))
+
+  // --- Drawing arrows ------------------------------------------------------
+
+  private def nodeNameProblem(name: String): String =
+    s"The node '$name' cannot be used in an arrow: " +
+      "arrow nodes may only contain letters, digits and underscores"
+
+  // Forgets any arrow popover, drawing and node highlight; the caller renders
+  private def endEdgeUi(): Unit = {
+    arrowPopover.hide()
+    pendingSource = None
+    drawing = None
+    state.selectedNodeForEdge = None
+    svgContainer.classList.remove("drawing-arrow")
+  }
+
+  private def cancelDrawing(): Unit = {
+    endEdgeUi()
     render()
+  }
+
+  private def closeArrowPopover(): Unit = {
+    arrowPopover.hide()
+    pendingSource = None
+    if (state.selectedNodeForEdge.nonEmpty) {
+      state.selectedNodeForEdge = None
+      render()
+    }
+  }
+
+  private def openArrowPopoverOnNode(badge: dom.Element, clientX: Double, clientY: Double): Unit = {
+    val name = badge.getAttribute("data-node")
+    if (!EdgeEditor.isNodeName(name)) toast(nodeNameProblem(name))
+    else {
+      popover.hide()
+      state.activeCycle = None
+      pendingSource = Some(
+        SourceNode(name, badge.getAttribute("data-x").toDouble, badge.getAttribute("data-y").toDouble)
+      )
+      state.selectedNodeForEdge = Some(name)
+      render()
+      arrowPopover.showNew(name, clientX, clientY)
+    }
+  }
+
+  private def openArrowPopoverOnEdge(index: Int, clientX: Double, clientY: Double): Unit =
+    for {
+      entry <- state.diagram.flatMap(_.edges.lift(index))
+      edge <- EdgeShape.parse(entry)
+    } {
+      popover.hide()
+      state.activeCycle = None
+      state.selectedNodeForEdge = None
+      pendingSource = None
+      render()
+      arrowPopover.showEdit(index, edge, clientX, clientY)
+    }
+
+  // The style is chosen: the arrow now follows the mouse until a node is clicked
+  private def startDrawing(shape: EdgeShape.Shape, label: Option[String]): Unit =
+    pendingSource.foreach { source =>
+      arrowPopover.hide()
+      pendingSource = None
+      drawing = Some(Drawing(source, shape, label))
+      svgContainer.classList.add("drawing-arrow")
+    }
+
+  private def finishDrawing(target: String): Unit =
+    drawing.foreach { d =>
+      if (target == d.source.name) cancelDrawing()
+      else if (!EdgeEditor.isNodeName(target)) toast(nodeNameProblem(target))
+      else applyEdgeEdit(EdgeEditor.add(_, d.source.name, d.shape, target, d.label))
+    }
+
+  // Moves the preview only; the drawing is not rendered again for every move
+  private def onSvgMouseMove(e: dom.MouseEvent): Unit =
+    for {
+      d <- drawing
+      svg <- Option(svgContainer.querySelector("svg"))
+      preview <- Option(svgContainer.querySelector("#edgePreview"))
+    } {
+      val badge = e.target.asInstanceOf[dom.Element].closest("[data-node]")
+      val end =
+        if (badge != null && badge.getAttribute("data-node") != d.source.name)
+          (badge.getAttribute("data-x").toDouble, badge.getAttribute("data-y").toDouble)
+        else svgPoint(svg.asInstanceOf[dom.svg.SVG], e)
+      val g = EdgeShape.geometry(d.shape, (d.source.x, d.source.y), end)
+      preview.setAttribute("d", g.path)
+      def setMarker(attr: String, id: Option[String]): Unit = id match {
+        case Some(name) => preview.setAttribute(attr, s"url(#$name)")
+        case None       => preview.removeAttribute(attr)
+      }
+      setMarker("marker-start", SvgRenderer.markerStartId(g))
+      setMarker("marker-end", SvgRenderer.markerEndId(g))
+    }
+
+  // The mouse in the drawing's own units, whatever the zoom
+  private def svgPoint(svg: dom.svg.SVG, e: dom.MouseEvent): (Double, Double) = {
+    val rect = svg.getBoundingClientRect()
+    val box = svg.viewBox.baseVal
+    // Less the half pixel the drawing is shifted by
+    (
+      (e.clientX - rect.left) * box.width / rect.width - 0.5,
+      (e.clientY - rect.top) * box.height / rect.height - 0.5
+    )
   }
 
   // --- Zoom ----------------------------------------------------------------
@@ -303,7 +428,14 @@ object WaveDromStudioApp {
     val target = e.target.asInstanceOf[dom.Element]
     val nodeBadge = target.closest("[data-node]")
     val cycleHit = target.closest(".cycle-hit")
-    if (nodeBadge != null) toggleNodeSelection(nodeBadge.getAttribute("data-node"))
+    val edgeHit = target.closest(".edge-hit")
+    if (drawing.nonEmpty) {
+      // Only a node ends the arrow; anything else gives it up
+      if (nodeBadge != null) finishDrawing(nodeBadge.getAttribute("data-node"))
+      else cancelDrawing()
+    } else if (nodeBadge != null) openArrowPopoverOnNode(nodeBadge, e.clientX, e.clientY)
+    else if (edgeHit != null)
+      openArrowPopoverOnEdge(edgeHit.getAttribute("data-edge").toInt, e.clientX, e.clientY)
     else if (cycleHit != null)
       openPopover(
         cycleHit.getAttribute("data-sig").toInt,
@@ -321,6 +453,12 @@ object WaveDromStudioApp {
   }
 
   private def onDocumentClick(e: dom.MouseEvent): Unit = {
+    if (arrowPopover.isOpen) {
+      val target = e.target.asInstanceOf[dom.Element]
+      // A click on a node or an arrow has just (re)opened the popover
+      if (!arrowPopover.contains(target) && target.closest("[data-node], .edge-hit") == null)
+        closeArrowPopover()
+    }
     if (popover.isOpen) {
       val target = e.target.asInstanceOf[dom.Element]
       // A click on a cycle has just (re)opened the popover; leave it alone
@@ -338,7 +476,9 @@ object WaveDromStudioApp {
     val command = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey
     val key = e.key.toLowerCase
 
-    if (key == "escape" && popover.isOpen) closePopover()
+    if (key == "escape" && drawing.nonEmpty) cancelDrawing()
+    else if (key == "escape" && arrowPopover.isOpen) closeArrowPopover()
+    else if (key == "escape" && popover.isOpen) closePopover()
     else if (command && key == "o") {
       e.preventDefault()
       openFiles()
