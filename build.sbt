@@ -3,7 +3,7 @@ enablePlugins(ScalaJSPlugin)
 import scala.util.control.NonFatal
 
 name := "wavedrom-studio"
-version := "0.0.1"
+version := "0.1.0"
 licenses := Seq("MIT" -> url("https://opensource.org/licenses/MIT"))
 
 scalaVersion := "3.3.4"
