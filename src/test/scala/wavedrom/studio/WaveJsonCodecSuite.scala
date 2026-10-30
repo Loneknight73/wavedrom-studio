@@ -179,6 +179,49 @@ class WaveJsonCodecSuite extends munit.FunSuite {
     assert(lines.contains(""""a~>b go""""), formatted)
   }
 
+  test("parse reads head and foot with string and JsonML text") {
+    val diagram = parseOk("""{ "signal": [ { "name": "a", "wave": "01" } ],
+      "head": { "text": "Title", "tick": 3, "every": 2 },
+      "foot": { "text": ["tspan", { "class": "muted" }, "cap ", ["tspan", "inner"]], "tock": "a b c" } }""")
+    val head = diagram.head.get
+    assertEquals(head.text, Some(RichText.Text("Title")))
+    assertEquals(head.tick, Some(CycleLabels.CountFrom(3)))
+    assertEquals(head.tock, None)
+    assertEquals(head.every, 2)
+    val foot = diagram.foot.get
+    assertEquals(
+      foot.text,
+      Some(
+        RichText.Span(
+          Map("class" -> "muted"),
+          Vector(RichText.Text("cap "), RichText.Span(Map.empty, Vector(RichText.Text("inner"))))
+        )
+      )
+    )
+    assertEquals(foot.tock, Some(CycleLabels.Listed(Vector("a", "b", "c"))))
+    assertEquals(foot.every, 1)
+    assertEquals(CycleLabels.CountFrom(3).at(2), Some("5"))
+  }
+
+  test("parse ignores head and foot values of the wrong type") {
+    val diagram = parseOk("""{ "signal": [ { "name": "a", "wave": "01" } ],
+      "head": { "text": 5, "tick": true, "tock": {}, "every": 0 },
+      "foot": "nope" }""")
+    assertEquals(diagram.head, Some(Caption()))
+    assertEquals(diagram.foot, None)
+    assertEquals(parseOk("""{ "signal": [], "head": { "every": 1.5 } }""").head.map(_.every), Some(1))
+    assertEquals(parseOk("""{ "signal": [], "head": { "text": ["b", "x"] } }""").head, Some(Caption()))
+  }
+
+  test("head and foot do not disturb a lossless write-back") {
+    val doc = parseDocOk("""{ "signal": [ { "name": "a", "wave": "01" } ],
+      "head": { "text": "T", "tick": 0 }, "foot": { "text": ["tspan", "x"] } }""")
+    val patched = WaveJsonCodec.patchSignal(doc, 0, doc.diagram.signals(0).copy(wave = "10"))
+    val expected = js.JSON.parse("""{ "signal": [ { "name": "a", "wave": "10" } ],
+      "head": { "text": "T", "tick": 0 }, "foot": { "text": ["tspan", "x"] } }""")
+    assertEquals(canonical(js.JSON.parse(patched)), canonical(expected))
+  }
+
   test("parse keeps the bus colour digits and reads the color key") {
     val diagram = parseOk("""{ "signal": [
       { "name": "bus", "wave": "x2.34=x", "data": ["A", "B", "C", "D"], "color": "#ff8800" },

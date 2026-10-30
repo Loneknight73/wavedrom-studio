@@ -108,9 +108,51 @@ Each entry of `edge` is a string `from<arrow>to`, followed by an optional label:
 
 The label, if any, is drawn halfway along the line.
 
+## Head and foot
+
+The top-level `head` adds a title and cycle labels above the diagram, `foot` a caption and cycle labels below it. Both take the same keys, all optional:
+
+| Key | Meaning |
+|---|---|
+| `text` | The title (`head`) or caption (`foot`), centred over the waves. Either a string or rich text (see below). |
+| `tick` | Labels on the vertical cycle lines. A number is the first label, counting up one per cycle: `"tick": 0` gives 0, 1, 2, … A string of words separated by spaces gives those labels in order, and so does a list. |
+| `tock` | Labels between the cycle lines, at the centre of each cycle. Same forms as `tick`. |
+| `every` | Show the `tick` and `tock` labels only on every N-th cycle (0, N, 2N, …). A positive whole number; the default is 1. |
+
+```json
+{
+  "signal": [ { "name": "clk", "wave": "p......." } ],
+  "head": { "text": "Handshake", "tick": 0, "every": 2 },
+  "foot": { "text": ["tspan", { "class": "muted" }, "Rev 1"] }
+}
+```
+
+Without `tick` and `tock` in `head`, the cycles are numbered 0, 1, 2, … above the waves. WaveDrom shows no numbers unless asked to, so this is a deliberate difference. A `head` with `tick` or `tock` replaces the numbers. Labels in `foot` add a row below the waves and never replace anything.
+
+### Rich text
+
+`text` can be styled with JsonML, as in WaveDrom: `["tspan", {attributes}, child, child, ...]`, where the attributes object is optional and each child is a string or another `tspan` list.
+
+```json
+"text": ["tspan", { "class": "h3" }, "Title ", ["tspan", { "fill": "#f60000" }, "in red"]]
+```
+
+Only `tspan` elements are drawn. Of the attributes, only `fill`, `font-weight`, `font-style`, `font-size`, `dy`, `text-decoration` and `baseline-shift` are kept; the others are dropped. The `class` attribute accepts these names, which are turned into the matching attributes in the drawing itself, so exported SVG files do not depend on any style sheet:
+
+| Class | Effect |
+|---|---|
+| `h1` … `h6` | Bold, at font size 33.6, 28, 24, 21, 18.7 and 16 |
+| `muted` | Grey text |
+| `warning` | Yellow text |
+| `error` | Red text |
+| `info` | Blue text |
+| `success` | Green text |
+
+A plain string is drawn at font size 14. A value of the wrong type in `head` or `foot` is ignored.
+
 ## Other keys
 
-Keys the studio does not use, such as `head`, `foot` and `config` at the top level, and `period` and `phase` on a signal, are kept in the document when it is edited and saved, but they have no effect on the drawing.
+Keys the studio does not use, such as `config` at the top level, and `period` and `phase` on a signal, are kept in the document when it is edited and saved, but they have no effect on the drawing.
 
 ## Where it differs from WaveDrom
 
@@ -118,4 +160,5 @@ This list covers what is known today. It is not a complete comparison, and WaveD
 
 - **Added here:** the `color` key of a signal, and multi-character node names separated by spaces.
 - **Not supported:** the keys listed under [Other keys](#other-keys), which are kept but do not affect the drawing. Wave characters that are not in the table above, such as `|` for a gap, or `u` and `d`, are drawn as low. Edge arrows other than the five listed above are not drawn.
+- **Head and foot:** supported (see [Head and foot](#head-and-foot)), with cycles numbered by default where WaveDrom shows no numbers, a string form for `tick` and `tock`, and only `tspan` in rich text.
 - **Possibly different:** how wide a cycle is, how labels are placed, and the finer details of the drawing follow this program's own renderer, so a diagram can look different here and in WaveDrom.

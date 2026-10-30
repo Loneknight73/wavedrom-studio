@@ -50,7 +50,17 @@ object SvgRenderer {
         val step = state.stepWidth
         val rowH = state.rowHeight
         val totalWidth = labelWidth + (maxCycles * step) + 60
-        val totalHeight = (diag.signals.length * rowH) + 60
+        // A head adds room for its title above the cycle numbers, a foot
+        // room for its labels and caption below the waves
+        val headSize = diag.head.flatMap(_.text).map(titleSize)
+        val footSize = diag.foot.flatMap(_.text).map(titleSize)
+        val headTextH = headSize.map(_ + 16).getOrElse(0.0)
+        val footTickH = if (diag.foot.exists(_.hasLabels)) 20.0 else 0.0
+        val footTextH = footSize.map(_ + 16).getOrElse(0.0)
+        val waveTop = headTextH + 35
+        val linesEnd = waveTop + (diag.signals.length * rowH) + 5
+        val totalHeight = linesEnd + 20 + footTickH + footTextH
+        val waveCentreX = labelWidth + (maxCycles * step) / 2.0
         // Width of the slanted edge between two levels
         val slant = Math.min(4.0, step / 4.0)
 
@@ -84,27 +94,52 @@ object SvgRenderer {
 
         // 1. Time Ruler
         sb.append("<g id=\"timeRuler\">")
+        val rulerY = headTextH + 18
+        def cycleLabel(x: Double, y: Double, label: String): Unit =
+          sb.append(
+            s"""<text x="$x" y="$y" fill="${Palette.tick}" font-size="9" text-anchor="middle">${escapeHtml(label)}</text>"""
+          )
         for (c <- 0 until maxCycles) {
           val cx = labelWidth + (c * step)
           sb.append(
-            s"""<line x1="$cx" y1="25" x2="$cx" y2="${totalHeight - 20}" stroke="${Palette.grid}" stroke-width="0.5" stroke-dasharray="1 3" />"""
+            s"""<line x1="$cx" y1="${waveTop - 10}" x2="$cx" y2="$linesEnd" stroke="${Palette.grid}" stroke-width="0.5" stroke-dasharray="1 3" />"""
           )
-          sb.append(
-            s"""<text x="${cx + (step / 2)}" y="18" fill="${Palette.tick}" font-size="9" text-anchor="middle">$c</text>"""
-          )
+          // The studio numbers the cycles by default, unlike WaveDrom; a
+          // head with its own tick or tock replaces the numbers
+          if (!diag.head.exists(_.hasLabels))
+            cycleLabel(cx + (step / 2), rulerY, c.toString)
         }
         val endX = labelWidth + (maxCycles * step)
         sb.append(
-          s"""<line x1="$endX" y1="25" x2="$endX" y2="${totalHeight - 20}" stroke="${Palette.grid}" stroke-width="0.5" stroke-dasharray="1 3" />"""
+          s"""<line x1="$endX" y1="${waveTop - 10}" x2="$endX" y2="$linesEnd" stroke="${Palette.grid}" stroke-width="0.5" stroke-dasharray="1 3" />"""
         )
+        // Tick labels sit on the cycle lines (the end line included), tock
+        // labels between them
+        def labelRow(cap: Caption, y: Double): Unit =
+          for (c <- 0 to maxCycles if c % cap.every == 0) {
+            val cx = labelWidth + (c * step)
+            cap.tick.flatMap(_.at(c)).foreach(cycleLabel(cx, y, _))
+            if (c < maxCycles)
+              cap.tock.flatMap(_.at(c)).foreach(cycleLabel(cx + step / 2, y, _))
+          }
+        diag.head.foreach(labelRow(_, rulerY))
+        diag.foot.foreach(labelRow(_, linesEnd + 14))
+        // Title and caption, centred over the waves
+        def captionText(cap: Option[Caption], size: Option[Double], y: Double): Unit =
+          for (c <- cap; t <- c.text; s <- size)
+            sb.append(
+              s"""<text class="caption" x="$waveCentreX" y="$y" fill="${Palette.ink}" font-size="$s" text-anchor="middle">${RichText.toSvg(t)}</text>"""
+            )
+        captionText(diag.head, headSize, headSize.getOrElse(0.0) + 4)
+        captionText(diag.foot, footSize, linesEnd + footTickH + footSize.getOrElse(0.0) + 6)
         sb.append("</g>")
 
         // 2. Curly Brackets for Groups
         if (diag.groups.nonEmpty) {
           sb.append("<g id=\"groupBrackets\">")
           diag.groups.foreach { g =>
-            val topY = 35 + (g.startSigIdx * rowH) + 8
-            val bottomY = 35 + (g.endSigIdx * rowH) + 40
+            val topY = waveTop + (g.startSigIdx * rowH) + 8
+            val bottomY = waveTop + (g.endSigIdx * rowH) + 40
             // The innermost brace hugs the names; outer ones step leftwards
             val bx = labelWidth - nameGap - nameWidth - 12 -
               (braceLevels - 1 - g.depth) * braceGap
@@ -135,7 +170,7 @@ object SvgRenderer {
 
         // 3. Render Signal Tracks
         diag.signals.zipWithIndex.foreach { case (sig, sigIdx) =>
-          val rowY = 35 + (sigIdx * rowH)
+          val rowY = waveTop + (sigIdx * rowH)
           val yHigh = rowY + 12
           val yLow = rowY + 36
           val yMid = rowY + 24
@@ -453,6 +488,12 @@ object SvgRenderer {
     }
 
   }
+
+  // Plain text is drawn at this size; rich text may ask for more
+  private val defaultTitleSize = 14.0
+
+  private def titleSize(text: RichText): Double =
+    RichText.maxFontSize(text, defaultTitleSize)
 
   // A hairline, the only kind of line a wave is drawn with
   private def line(d: String, color: String): String =

@@ -104,9 +104,37 @@ case class WaveDiagram(
     signals: Vector[SignalTrack],
     groups: Vector[SignalGroup] = Vector.empty,
     edges: Vector[String] = Vector.empty,
-    head: Option[js.Dynamic] = None,
-    foot: Option[js.Dynamic] = None
+    head: Option[Caption] = None,
+    foot: Option[Caption] = None
 )
+
+// Labels for the vertical cycle lines (tick) or the cycle centres (tock)
+sealed trait CycleLabels {
+  def at(cycle: Int): Option[String]
+}
+object CycleLabels {
+  // A number: the first label, counting up one per cycle
+  final case class CountFrom(first: Double) extends CycleLabels {
+    def at(cycle: Int): Option[String] = {
+      val n = first + cycle
+      Some(if (n == Math.rint(n) && Math.abs(n) < 1e15) n.toLong.toString else n.toString)
+    }
+  }
+  final case class Listed(labels: Vector[String]) extends CycleLabels {
+    def at(cycle: Int): Option[String] = labels.lift(cycle)
+  }
+}
+
+// The parsed `head` or `foot` of a document. `every` thins the labels out:
+// only cycles that are a multiple of it get one.
+case class Caption(
+    text: Option[RichText] = None,
+    tick: Option[CycleLabels] = None,
+    tock: Option[CycleLabels] = None,
+    every: Int = 1
+) {
+  def hasLabels: Boolean = tick.isDefined || tock.isDefined
+}
 
 // A parsed diagram together with the JS tree it came from. signalObjs(i) is
 // the original object behind diagram.signals(i), so edits can be written back
