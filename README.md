@@ -75,6 +75,14 @@ From there you can:
 
 Clicking past the end of a short signal extends it.
 
+### Drawing arrows
+
+Arrows connect two node markers. To draw one, click the node it starts from, pick one of the 21 styles (curves, elbows, straight lines or the `+` measurement line) and optionally type a label. The arrow then follows the mouse: click the node it should end at to finish it. Esc, a click on empty space, or a second click on the starting node gives it up. **Clear Node Selection** does the same.
+
+To change an arrow, click it. The popover shows its style and label: pick another style, or edit the label and press Apply (the two nodes stay as they are), or choose **Delete Arrow**. Nodes whose names contain anything other than letters, digits and underscores cannot be used in arrows.
+
+Drawing, restyling and deleting arrows are edits to the `edge` list of the JSON, so Undo (Ctrl+Z) takes them back.
+
 ### Keyboard shortcuts
 
 | Keys | Action |

@@ -86,6 +86,22 @@ class AppState {
     }
   }
 
+  // Applies an edit to the document's `edge` list, the way applyEdit does for
+  // a signal. Returns the new text, or None when the list is unchanged.
+  def applyEdgeEdit(edit: Vector[String] => Vector[String]): Option[String] = {
+    for {
+      doc <- document
+      original = doc.diagram.edges
+      updated = edit(original)
+      if updated != original
+    } yield {
+      val previousText = jsonText
+      updateFromText(WaveJsonCodec.patchEdges(doc, updated))
+      undoStack = (previousText :: undoStack).take(maxUndo)
+      jsonText
+    }
+  }
+
   // Replaces the whole text (e.g. after reformatting) as one undoable step.
   // Returns None when the text is unchanged.
   def replaceText(newText: String): Option[String] =

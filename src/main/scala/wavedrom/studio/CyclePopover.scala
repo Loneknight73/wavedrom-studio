@@ -133,12 +133,7 @@ final class CyclePopover(onEdit: (SignalTrack => SignalTrack) => Unit) {
       signalColor.flatMap(SignalColor.toPickerValue).getOrElse(defaultPickerColor)
 
     root.removeAttribute("hidden")
-    // Keep the popover inside the viewport
-    val margin = 8.0
-    val maxLeft = dom.window.innerWidth - root.offsetWidth - margin
-    val maxTop = dom.window.innerHeight - root.offsetHeight - margin
-    root.style.left = s"${Math.max(margin, Math.min(maxLeft, clientX + 12))}px"
-    root.style.top = s"${Math.max(margin, Math.min(maxTop, clientY + 12))}px"
+    Popovers.place(root, clientX, clientY)
   }
 
   def hide(): Unit = root.setAttribute("hidden", "")

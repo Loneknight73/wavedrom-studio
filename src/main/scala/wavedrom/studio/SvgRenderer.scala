@@ -6,7 +6,7 @@ object SvgRenderer {
 
   // The colours of the classic WaveDrom skin. They are written into the SVG
   // itself (never left to page CSS) so an exported drawing looks the same.
-  private object Palette {
+  private[studio] object Palette {
     val ink = "#000" // signal lines, names, bus outlines and labels
     val paper = "#fff" // bus fill and the backing of labels drawn over waves
     val grid = "#888" // dotted cycle boundaries
@@ -226,7 +226,7 @@ object SvgRenderer {
               val badgeW = Math.max(10.0, nodeName.length * 5.5 + 4)
 
               nodesSb.append(s"""
-            <g class="node-badge" data-node="${escapeHtml(nodeName)}">
+            <g class="node-badge" data-node="${escapeHtml(nodeName)}" data-x="$nx" data-y="$ny">
               <rect x="${nx - badgeW / 2}" y="${ny - 6}" width="$badgeW" height="12" rx="2" fill="${
                   if (isSelected) Palette.selectedFill else Palette.paper
                 }" stroke="${
@@ -437,29 +437,24 @@ object SvgRenderer {
         sb.append("<g id=\"cycleHits\">").append(hitsSb.toString).append("</g>")
 
         // 4. Render Edges / Connection Arrows
+        // The arrows themselves take no clicks; wider invisible copies of them
+        // do, so a thin line is easy to hit
+        val edgeHitsSb = new StringBuilder()
         if (diag.edges.nonEmpty) {
           sb.append("<g id=\"edgesLayer\" pointer-events=\"none\">")
           // An entry that does not parse, or names an unknown node, is skipped
-          diag.edges.foreach { edgeStr =>
+          diag.edges.zipWithIndex.foreach { case (edgeStr, edgeIdx) =>
             for {
               edge <- EdgeShape.parse(edgeStr)
               p1 <- nodeLocations.get(edge.from)
               p2 <- nodeLocations.get(edge.to)
             } {
               val g = EdgeShape.geometry(edge.shape, (p1.x, p1.y), (p2.x, p2.y))
-              // A tee bar closes both ends of the line. Like the arrowheads, the
-              // bars stop short of the node, clear of the patch its name is on
-              val markerStart =
-                if (g.tee) "marker-start=\"url(#teeStart)\" "
-                else if (g.startArrow) "marker-start=\"url(#arrowStart)\" "
-                else ""
-              val markerEnd =
-                if (g.tee) "marker-end=\"url(#teeEnd)\""
-                else if (g.endArrow) "marker-end=\"url(#arrowEnd)\""
-                else ""
-
               sb.append(
-                s"""<path d="${g.path}" fill="none" stroke="${Palette.edge}" stroke-width="1" $markerStart$markerEnd />"""
+                s"""<path d="${g.path}" fill="none" stroke="${Palette.edge}" stroke-width="1" ${markerAttrs(g)} />"""
+              )
+              edgeHitsSb.append(
+                s"""<path class="edge-hit edge-ui" data-edge="$edgeIdx" d="${g.path}" fill="none" stroke="transparent" stroke-width="10" pointer-events="stroke" />"""
               )
 
               edge.label.foreach { label =>
@@ -473,11 +468,21 @@ object SvgRenderer {
                       label
                     )}</text>"""
                 )
+                // The label covers the line, so it is a handle for the arrow too
+                edgeHitsSb.append(
+                  s"""<rect class="edge-hit edge-ui" data-edge="$edgeIdx" x="${g.labelX - labelW / 2}" y="${g.labelY - 7}" width="$labelW" height="14" fill="transparent" />"""
+                )
               }
             }
           }
           sb.append("</g>")
         }
+        sb.append("<g id=\"edgeHits\">").append(edgeHitsSb.toString).append("</g>")
+
+        // The arrow being drawn follows the mouse; the app fills it in
+        sb.append(
+          s"""<path id="edgePreview" class="edge-ui" d="" fill="none" stroke="${Palette.edge}" stroke-width="1" pointer-events="none" />"""
+        )
 
         // Node names go on top of the edges that meet at them, as in WaveDrom
         sb.append("<g id=\"nodeMarkers\">").append(nodesSb.toString).append("</g>")
@@ -494,6 +499,18 @@ object SvgRenderer {
 
   private def titleSize(text: RichText): Double =
     RichText.maxFontSize(text, defaultTitleSize)
+
+  // A tee bar closes both ends of a + line. Like the arrowheads, the bars stop
+  // short of the node, clear of the patch its name is on.
+  private[studio] def markerStartId(g: EdgeShape.Geometry): Option[String] =
+    if (g.tee) Some("teeStart") else if (g.startArrow) Some("arrowStart") else None
+
+  private[studio] def markerEndId(g: EdgeShape.Geometry): Option[String] =
+    if (g.tee) Some("teeEnd") else if (g.endArrow) Some("arrowEnd") else None
+
+  private def markerAttrs(g: EdgeShape.Geometry): String =
+    (markerStartId(g).map(id => s"""marker-start="url(#$id)"""") ++
+      markerEndId(g).map(id => s"""marker-end="url(#$id)"""")).mkString(" ")
 
   // A hairline, the only kind of line a wave is drawn with
   private def line(d: String, color: String): String =
@@ -563,7 +580,7 @@ object SvgRenderer {
     case _                                                             => yMid
   }
 
-  private def escapeHtml(str: String): String = {
+  private[studio] def escapeHtml(str: String): String = {
     str
       .replace("&", "&amp;")
       .replace("<", "&lt;")

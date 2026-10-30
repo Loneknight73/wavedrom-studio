@@ -158,6 +158,34 @@ class WaveJsonCodecSuite extends munit.FunSuite {
     assertEquals(canonical(js.JSON.parse(patched)), canonical(expected))
   }
 
+  test("patchEdges changes the edge list and nothing else") {
+    val json = """{ "signal": [ { "name": "a", "wave": "01", "node": "ab" } ],
+      "head": { "text": "T" }, "edge": ["a->b"], "config": { "hscale": 2 } }"""
+    val patched = WaveJsonCodec.patchEdges(parseDocOk(json), Vector("a~>b x", "b->a"))
+
+    val expected = js.JSON.parse(json)
+    expected.edge = js.Array[js.Any]("a~>b x", "b->a")
+    assertEquals(canonical(js.JSON.parse(patched)), canonical(expected))
+  }
+
+  test("patchEdges creates the edge list when there is none") {
+    val json = """{ "signal": [ { "name": "a", "wave": "01" } ] }"""
+    val patched = WaveJsonCodec.patchEdges(parseDocOk(json), Vector("a->b"))
+    val expected = js.JSON.parse(json)
+    expected.edge = js.Array[js.Any]("a->b")
+    assertEquals(canonical(js.JSON.parse(patched)), canonical(expected))
+  }
+
+  test("patchEdges removes the edge list when it becomes empty") {
+    val json = """{ "signal": [ { "name": "a", "wave": "01" } ], "edge": ["a->b"] }"""
+    val patched = WaveJsonCodec.patchEdges(parseDocOk(json), Vector.empty)
+    assert(js.typeOf(js.JSON.parse(patched).edge) == "undefined", patched)
+    assertEquals(
+      canonical(js.JSON.parse(patched)),
+      canonical(js.JSON.parse("""{ "signal": [ { "name": "a", "wave": "01" } ] }"""))
+    )
+  }
+
   test("format keeps each signal on one line and loses nothing") {
     val formatted = WaveJsonCodec.format(js.JSON.parse(richJson))
     assertEquals(
