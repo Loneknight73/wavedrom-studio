@@ -4,8 +4,11 @@ import scala.scalajs.js
 
 sealed trait WaveState
 object WaveState {
-  case object High extends WaveState // 1, h
-  case object Low extends WaveState // 0, l
+  case object High extends WaveState // 1
+  case object Low extends WaveState // 0
+  // h and l: levels like 1 and 0, but the edge into them is vertical, as in a clock
+  case object SharpHigh extends WaveState // h
+  case object SharpLow extends WaveState // l
   case object HighArrow extends WaveState // H: high, arrow on the rising edge
   case object LowArrow extends WaveState // L: low, arrow on the falling edge
   case object PosClock extends WaveState // p
@@ -18,6 +21,9 @@ object WaveState {
   // 2..9: a data bus in one of WaveDrom's eight colours (see BusPalette)
   final case class ColoredBus(digit: Int) extends WaveState
   case object Hold extends WaveState // .
+  case object Gap extends WaveState // |: a hold with a break drawn over it
+  case object PullUp extends WaveState // u: dotted high level
+  case object PullDown extends WaveState // d: dotted low level
 
   // Clocks and levels are case sensitive: the upper-case forms carry an
   // arrow. `HLHL...` is a clock active on both edges, half a period per cycle.
@@ -30,8 +36,13 @@ object WaveState {
   }
 
   private def fromLowerChar(c: Char): WaveState = c match {
-    case '1' | 'h'      => High
-    case '0' | 'l'      => Low
+    case '1'            => High
+    case 'h'            => SharpHigh
+    case '0'            => Low
+    case 'l'            => SharpLow
+    case 'u'            => PullUp
+    case 'd'            => PullDown
+    case '|'            => Gap
     case 'p'            => PosClock
     case 'n'            => NegClock
     case 'x'            => Undefined
@@ -44,10 +55,21 @@ object WaveState {
 
   // The plain level an arrowed level is drawn as
   def level(state: WaveState): WaveState = state match {
-    case HighArrow => High
-    case LowArrow  => Low
-    case other     => other
+    case HighArrow | SharpHigh => High
+    case LowArrow | SharpLow   => Low
+    case other                 => other
   }
+
+  // The edge into these is vertical; into 1 and 0 it is slanted
+  def isSharp(state: WaveState): Boolean = state match {
+    case SharpHigh | SharpLow | HighArrow | LowArrow => true
+    case _                                           => false
+  }
+
+  def isPull(state: WaveState): Boolean = state == PullUp || state == PullDown
+
+  // A cycle that continues the previous one
+  def isHold(state: WaveState): Boolean = state == Hold || state == Gap
 
   def isBus(state: WaveState): Boolean = state match {
     case DataBus | ColoredBus(_) => true
@@ -57,6 +79,11 @@ object WaveState {
   def toChar(state: WaveState): Char = state match {
     case High      => '1'
     case Low       => '0'
+    case SharpHigh => 'h'
+    case SharpLow  => 'l'
+    case PullUp    => 'u'
+    case PullDown  => 'd'
+    case Gap       => '|'
     case PosClock  => 'p'
     case NegClock  => 'n'
     case PosClockArrow => 'P'

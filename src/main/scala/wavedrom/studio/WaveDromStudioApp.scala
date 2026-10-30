@@ -21,7 +21,7 @@ object WaveDromStudioApp {
 
   private val minZoom = 0.25
   private val maxZoom = 4.0
-  private val stateKeys = "10pnxz=."
+  private val stateKeys = "10pnxz=.|ud"
   private val busColorKeys = "23456789"
   private val defaultFileName = "waveform.json"
 

@@ -232,4 +232,34 @@ class WaveEditorSuite extends munit.FunSuite {
     assertEquals(clocked.wave, "=.HL")
     assertEquals(clocked.data, Vector("A"))
   }
+
+  // --- Gaps ----------------------------------------------------------------
+
+  test("a gap counts as a hold in setCycle") {
+    // The gap keeps showing the bus it held when the cycle before it changes
+    val split = WaveEditor.setCycle(track("=|", data = Vector("A")), 0, '0')
+    assertEquals(split.wave, "0=")
+    assertEquals(split.data, Vector("A"))
+    // Setting a gap lets the previous state run on, like a dot
+    assertEquals(WaveEditor.setCycle(track("01"), 1, '|').wave, "0|")
+  }
+
+  test("deleteCycle shortens a segment held by a gap") {
+    val edited = WaveEditor.deleteCycle(track("=|=", data = Vector("A", "B")), 0)
+    assertEquals(edited.wave, "==")
+    assertEquals(edited.data, Vector("A", "B"))
+    assertEquals(WaveEditor.deleteCycle(track("1|0"), 1).wave, "10")
+  }
+
+  test("bus labels stay aligned across a gap") {
+    val t = track("=|=", data = Vector("A", "B"))
+    assertEquals(WaveEditor.busLabel(t, 1), Some("A"))
+    assertEquals(WaveEditor.busLabel(t, 2), Some("B"))
+    assertEquals(WaveEditor.setBusLabel(t, 1, "Z").data, Vector("Z", "B"))
+    assertEquals(WaveEditor.busToken(track("3|"), 1), Some('3'))
+  }
+
+  test("insertHoldAfter still inserts a dot") {
+    assertEquals(WaveEditor.insertHoldAfter(track("1|0"), 0).wave, "1.|0")
+  }
 }

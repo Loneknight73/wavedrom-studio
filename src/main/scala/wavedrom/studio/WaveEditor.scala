@@ -4,6 +4,9 @@ package wavedrom.studio
 // wave, node and data kept consistent with one another.
 object WaveEditor {
 
+  // A cycle that continues the previous one: `.`, or `|` which also draws a break
+  def isHold(c: Char): Boolean = c == '.' || c == '|'
+
   private def isBusStart(c: Char): Boolean =
     WaveState.isBus(WaveState.fromChar(c))
 
@@ -12,11 +15,11 @@ object WaveEditor {
 
   // The token in effect at `cycle`: the last non-hold character at or before it
   private def effectiveChar(wave: String, cycle: Int): Option[Char] =
-    wave.take(cycle + 1).reverseIterator.find(_ != '.')
+    wave.take(cycle + 1).reverseIterator.find(!isHold(_))
 
   // Index into `data` of the bus segment covering `cycle`, if there is one
   private def busDataIndex(wave: String, cycle: Int): Option[Int] = {
-    val start = wave.lastIndexWhere(_ != '.', cycle)
+    val start = wave.lastIndexWhere(!isHold(_), cycle)
     if (cycle < wave.length && start >= 0 && isBusStart(wave(start)))
       Some(busStartsBefore(wave, start))
     else None
@@ -30,9 +33,9 @@ object WaveEditor {
     // before, so it takes over the token it was holding.
     val carried = effectiveChar(wave, cycle)
     val newEffective =
-      if (newChar == '.') effectiveChar(wave, cycle - 1) else Some(newChar)
+      if (isHold(newChar)) effectiveChar(wave, cycle - 1) else Some(newChar)
     if (
-      cycle + 1 < wave.length && wave(cycle + 1) == '.' && newEffective != carried
+      cycle + 1 < wave.length && isHold(wave(cycle + 1)) && newEffective != carried
     ) {
       val carriedChar = carried.getOrElse('0')
       if (isBusStart(carriedChar)) {
@@ -63,7 +66,8 @@ object WaveEditor {
     val end = Math.max(track.wave.length, cycle + 1)
     val before = effectiveChar(track.wave, cycle - 1).map(WaveState.fromChar)
     val startsLow = before.exists {
-      case WaveState.High | WaveState.HighArrow | WaveState.NegClock |
+      case WaveState.High | WaveState.SharpHigh | WaveState.HighArrow |
+          WaveState.NegClock |
           WaveState.NegClockArrow =>
         true
       case _ => false
@@ -96,7 +100,7 @@ object WaveEditor {
       // Deleting the first cycle of a held segment shortens the segment
       // instead of removing its token.
       val heldAfter =
-        wave(cycle) != '.' && cycle + 1 < wave.length && wave(cycle + 1) == '.'
+        !isHold(wave(cycle)) && cycle + 1 < wave.length && isHold(wave(cycle + 1))
       val pos = if (heldAfter) cycle + 1 else cycle
       val idx = busStartsBefore(wave, pos)
       val data =
@@ -125,7 +129,7 @@ object WaveEditor {
 
   // The wave character of the bus segment covering `cycle`: `=` or `2`..`9`
   def busToken(track: SignalTrack, cycle: Int): Option[Char] = {
-    val start = track.wave.lastIndexWhere(_ != '.', cycle)
+    val start = track.wave.lastIndexWhere(!isHold(_), cycle)
     if (cycle < track.wave.length && start >= 0 && isBusStart(track.wave(start)))
       Some(track.wave(start))
     else None
@@ -137,7 +141,7 @@ object WaveEditor {
     if (!isBusStart(token)) track
     else if (busToken(track, cycle).isEmpty) setCycle(track, cycle, token)
     else {
-      val start = track.wave.lastIndexWhere(_ != '.', cycle)
+      val start = track.wave.lastIndexWhere(!isHold(_), cycle)
       track.copy(wave = track.wave.updated(start, token))
     }
 
