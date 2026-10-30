@@ -116,19 +116,27 @@ object Samples {
       """{
   "head": { "text": ["tspan", { "class": "h4" }, "Edge Arrows"], "tick": 0 },
   "signal": [
-    { "name": "req",  "wave": "0.1...0..1..", "node": ".a.......e.." },
-    { "name": "gnt",  "wave": "0..1....0..1", "node": "....b......f" },
-    { "name": "data", "wave": "x.=.=.=.=.=.", "data": ["A", "B", "C", "D", "E"], "node": "......c....i" },
-    { "name": "addr", "wave": "1..0..1..0..", "node": "..g....d..h." },
-    { "name": "done", "wave": "0...1...0..1", "node": ".I...J..j..." }
+    [ "Splines",
+      { "name": "from", "wave": "01.....0.....1...", "node": ".a.....c.....e..." },
+      { "name": "to",   "wave": "0...1.....0.....1", "node": "....b.....d.....f" }
+    ],
+    {},
+    [ "Elbows",
+      { "name": "from", "wave": "01.....0.....1...", "node": ".g.....i.....k..." },
+      { "name": "to",   "wave": "0...1.....0.....1", "node": "....h.....j.....l" }
+    ],
+    {},
+    [ "Lines",
+      { "name": "from", "wave": "01.....0.........", "node": ".m.....o........." },
+      { "name": "to",   "wave": "0...1.....0..1..0", "node": "....n.....p..q..r" }
+    ]
   ],
   "edge": [
-    "a~b t1", "c-~a t2", "c-~>d time 3", "d~-e", "e~>f", "f->g",
-    "g-~>h", "h~>i some text", "h~->j",
-    "b-|a t1", "a-|c t2", "b-|-c t3", "c-|->e t4", "e-|>f more text",
-    "e|->d t6", "c-g", "f-h", "g<->h 3 ms", "I+J 5 ms"
+    "a~>b ~>", "c-~>d -~>", "e~->f ~->",
+    "g-|>h -|>", "i|->j |->", "k-|->l -|->",
+    "m->n ->", "o<->p <->", "q+r 3 cycles"
   ],
-  "foot": { "text": ["tspan", "Splines ", ["tspan", { "class": "info" }, "~ -~ ~-"], ", elbows ", ["tspan", { "class": "info" }, "-| |- -|-"], ", lines and the ", ["tspan", { "class": "info" }, "+"], " measurement"] }
+  "foot": { "text": ["tspan", "Curves ", ["tspan", { "class": "info" }, "~ -~ ~-"], ", elbows ", ["tspan", { "class": "info" }, "-| |- -|-"], ", lines, and the ", ["tspan", { "class": "info" }, "+"], " measurement; each comes with or without arrowheads"] }
 }"""
     )
   )
