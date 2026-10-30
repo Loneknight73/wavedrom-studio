@@ -329,6 +329,68 @@ class SvgRendererSuite extends munit.FunSuite {
     assertEquals(shapes(arrows), shapes(plain))
   }
 
+  private val oneSignal = """{ "name": "a", "wave": "01010101" }"""
+  private def tickLabels(svg: String): Vector[String] =
+    """fill="#666" font-size="9" text-anchor="middle">([^<]*)<""".r
+      .findAllMatchIn(svg).map(_.group(1)).toVector
+
+  test("numbers the cycles 0, 1, 2 by default, with or without a head") {
+    val expected = (0 until 8).map(_.toString).toVector
+    assertEquals(tickLabels(render(s"""{ "signal": [ $oneSignal ] }""")), expected)
+    assertEquals(tickLabels(render(s"""{ "signal": [ $oneSignal ], "head": { "text": "T" } }""")), expected)
+  }
+
+  test("renders the head title, escaped, above the waves") {
+    val plain = render(s"""{ "signal": [ $oneSignal ] }""")
+    val svg = render(s"""{ "signal": [ $oneSignal ], "head": { "text": "A <b> & C" } }""")
+    assert(svg.contains(""">A &lt;b&gt; &amp; C</text>"""), svg)
+    assert(!svg.contains("<b>"), svg)
+    // The row sits lower than without a head
+    def rowRect(s: String) = """class="cycle-hit" data-sig="0" data-cycle="0" x="[\d.]+" y="([\d.]+)"""".r.findFirstMatchIn(s).get.group(1).toDouble
+    assert(rowRect(svg) > rowRect(plain))
+    val titleY = """class="caption" x="[\d.]+" y="([\d.]+)"""".r.findFirstMatchIn(svg).get.group(1).toDouble
+    assert(titleY < rowRect(svg))
+  }
+
+  test("head tick replaces the default numbers; every thins the labels") {
+    val all = render(s"""{ "signal": [ $oneSignal ], "head": { "tick": 10 } }""")
+    // Labels sit on the cycle lines, the one closing the last cycle included
+    assertEquals(tickLabels(all), (10 to 18).map(_.toString).toVector)
+    val thinned = render(s"""{ "signal": [ $oneSignal ], "head": { "tick": 0, "every": 2 } }""")
+    assertEquals(tickLabels(thinned), Vector("0", "2", "4", "6", "8"))
+    val tock = render(s"""{ "signal": [ $oneSignal ], "head": { "tock": "a b c", "every": 2 } }""")
+    assertEquals(tickLabels(tock), Vector("a", "c"))
+  }
+
+  test("tick labels sit on the cycle lines, tock labels at the cycle centres") {
+    val state = new AppState()
+    state.updateFromText(s"""{ "signal": [ $oneSignal ], "head": { "tick": "x", "tock": "y" } }""")
+    val svg = SvgRenderer.renderToString(state)
+    val xs = """<text x="([\d.]+)"[^>]*fill="#666"[^>]*>([^<]*)<""".r
+      .findAllMatchIn(svg).map(m => m.group(2) -> m.group(1).toDouble).toMap
+    assertEquals(xs("x") + state.stepWidth / 2, xs("y"))
+  }
+
+  test("a foot caption is drawn below the last signal") {
+    val svg = render(s"""{ "signal": [ $oneSignal ], "foot": { "text": ["tspan", { "class": "error" }, "done"], "tock": 1 } }""")
+    assert(svg.contains("""<tspan fill="#f60000">done</tspan>"""), svg)
+    val captionY = """class="caption" x="[\d.]+" y="([\d.]+)"""".r.findFirstMatchIn(svg).get.group(1).toDouble
+    val rowY = """class="cycle-hit" data-sig="0" data-cycle="0" x="[\d.]+" y="([\d.]+)"""".r.findFirstMatchIn(svg).get.group(1).toDouble
+    assert(captionY > rowY + 40, s"$captionY vs $rowY")
+    // The foot's labels replace nothing: the head still has its numbers
+    assertEquals(tickLabels(svg).take(8), (0 until 8).map(_.toString).toVector)
+    val height = """viewBox="0 0 [\d.]+ ([\d.]+)"""".r.findFirstMatchIn(svg).get.group(1).toDouble
+    assert(height > captionY)
+  }
+
+  test("head and foot grow the drawing, none leaves it as it was") {
+    def height(json: String) = """viewBox="0 0 [\d.]+ ([\d.]+)"""".r.findFirstMatchIn(render(json)).get.group(1).toDouble
+    val none = height(s"""{ "signal": [ $oneSignal ] }""")
+    assertEquals(none, 100.0)
+    assert(height(s"""{ "signal": [ $oneSignal ], "head": { "text": "t" } }""") > none)
+    assert(height(s"""{ "signal": [ $oneSignal ], "foot": { "text": "t" } }""") > none)
+  }
+
   test("an arrowed level without an edge, or held, has no arrow") {
     assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "1H.." } ] }"""), "clock-arrow"), 0)
     assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "0H..L." } ] }"""), "clock-arrow"), 2)
@@ -377,5 +439,13 @@ class SvgRendererSuite extends munit.FunSuite {
     assert(vertical(edge("0h")), edge("0h"))
     assert(vertical(edge("1l")), edge("1l"))
     assert(!vertical(edge("01")), edge("01"))
+  }
+
+  test("a title span without a size keeps the default, not the largest size") {
+    val svg = render("""{ "signal": [ { "name": "a", "wave": "01" } ],
+      "head": { "text": ["tspan", ["tspan", { "class": "h1" }, "big"], " small"] } }""")
+    assert(svg.contains("""<text class="caption" x="""), svg)
+    val caption = svg.drop(svg.indexOf("""<text class="caption""""))
+    assert(caption.takeWhile(_ != '>').contains("""font-size="14""""), caption.take(200))
   }
 }

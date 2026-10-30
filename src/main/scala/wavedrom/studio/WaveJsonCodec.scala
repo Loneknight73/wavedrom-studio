@@ -78,13 +78,88 @@ object WaveJsonCodec {
       }
 
       Right(
-        WaveDocument(parsed, signalObjs, WaveDiagram(flatSignals, groups, edges))
+        WaveDocument(
+          parsed,
+          signalObjs,
+          WaveDiagram(
+            flatSignals,
+            groups,
+            edges,
+            parseCaption(parsed.head),
+            parseCaption(parsed.foot)
+          )
+        )
       )
     } catch {
       case NonFatal(ex) => Left(s"JSON Syntax Error: ${ex.getMessage}")
     }
 
   }
+
+  private def isObject(value: js.Any): Boolean =
+    value != null && js.typeOf(value) == "object" && !js.Array.isArray(value)
+
+  // `head` or `foot`. A value of the wrong type is ignored, so a mistake
+  // costs the drawing that part, not the whole document.
+  private def parseCaption(value: js.Any): Option[Caption] =
+    if (!isObject(value)) None
+    else {
+      val obj = value.asInstanceOf[js.Dynamic]
+      val rawEvery = obj.every.asInstanceOf[js.Any]
+      val every =
+        if (js.typeOf(rawEvery) == "number") {
+          val d = rawEvery.asInstanceOf[Double]
+          if (d >= 1 && d == Math.floor(d) && d < Int.MaxValue) d.toInt else 1
+        } else 1
+      Some(
+        Caption(
+          parseRichText(obj.text.asInstanceOf[js.Any]),
+          parseLabels(obj.tick.asInstanceOf[js.Any]),
+          parseLabels(obj.tock.asInstanceOf[js.Any]),
+          every
+        )
+      )
+    }
+
+  private def parseLabels(value: js.Any): Option[CycleLabels] =
+    js.typeOf(value) match {
+      case "number" =>
+        val d = value.asInstanceOf[Double]
+        if (d.isNaN || d.isInfinite) None else Some(CycleLabels.CountFrom(d))
+      case "string" =>
+        Some(CycleLabels.Listed(value.asInstanceOf[String].trim.split("\\s+").toVector.filter(_.nonEmpty)))
+      case "object" if js.Array.isArray(value) =>
+        Some(CycleLabels.Listed(value.asInstanceOf[js.Array[js.Any]].map(_.toString).toVector))
+      case _ => None
+    }
+
+  // A string, or JsonML: ["tspan", {attrs}?, child, ...]. Elements other than
+  // `tspan` are dropped together with their content.
+  private def parseRichText(value: js.Any): Option[RichText] =
+    js.typeOf(value) match {
+      case "string" =>
+        val s = value.asInstanceOf[String]
+        if (s.isEmpty) None else Some(RichText.Text(s))
+      case "object" if js.Array.isArray(value) =>
+        val arr = value.asInstanceOf[js.Array[js.Any]].toVector
+        val isTspan = arr.headOption.exists(h =>
+          js.typeOf(h) == "string" && h.asInstanceOf[String] == "tspan"
+        )
+        if (!isTspan) None
+        else {
+          val rest = arr.tail
+          val attrObj = rest.headOption.filter(isObject)
+          val attrs = attrObj.toVector.flatMap { a =>
+            a.asInstanceOf[js.Dictionary[js.Any]].toVector.collect {
+              case (k, v) if js.typeOf(v) == "string" || js.typeOf(v) == "number" =>
+                k -> v.toString
+            }
+          }.toMap
+          val children = (if (attrObj.isDefined) rest.tail else rest).flatMap(parseRichText)
+          Some(RichText.Span(attrs, children))
+        }
+      case _ => None
+    }
 
   def parseNodeTokens(nodeStr: String): Map[Int, Vector[String]] = {
     if (nodeStr.trim.isEmpty) return Map.empty
