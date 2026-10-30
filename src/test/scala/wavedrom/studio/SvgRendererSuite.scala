@@ -192,9 +192,9 @@ class SvgRendererSuite extends munit.FunSuite {
       { "name": "req", "wave": "01.0", "node": ".a.." },
       { "name": "ack", "wave": "0.10", "node": "..b." }
     ], "edge": ["a+b 5 ms"] }""")
-    assert(svg.contains("""<marker id="tee""""), svg)
-    assert(svg.contains("""marker-start="url(#tee)""""), svg)
-    assert(svg.contains("""marker-end="url(#tee)""""), svg)
+    assert(svg.contains("""<marker id="teeStart""""), svg)
+    assert(svg.contains("""marker-start="url(#teeStart)""""), svg)
+    assert(svg.contains("""marker-end="url(#teeEnd)""""), svg)
     assert(!svg.contains("""marker-end="url(#arrowEnd)""""), svg)
     assert(svg.contains(">5 ms</text>"))
   }

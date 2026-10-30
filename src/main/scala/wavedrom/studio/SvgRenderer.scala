@@ -74,7 +74,10 @@ object SvgRenderer {
         <marker id="arrowStart" viewBox="0 0 10 10" refX="-6" refY="5" markerWidth="9" markerHeight="9" orient="auto">
           <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="${Palette.edge}" />
         </marker>
-        <marker id="tee" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+        <marker id="teeStart" viewBox="0 0 10 10" refX="-3" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+          <path d="M 5 0 L 5 10" stroke="${Palette.edge}" stroke-width="1" fill="none" />
+        </marker>
+        <marker id="teeEnd" viewBox="0 0 10 10" refX="13" refY="5" markerWidth="9" markerHeight="9" orient="auto">
           <path d="M 5 0 L 5 10" stroke="${Palette.edge}" stroke-width="1" fill="none" />
         </marker>
       </defs>
@@ -391,13 +394,14 @@ object SvgRenderer {
               p2 <- nodeLocations.get(edge.to)
             } {
               val g = EdgeShape.geometry(edge.shape, (p1.x, p1.y), (p2.x, p2.y))
-              // A tee bar closes both ends of the line
+              // A tee bar closes both ends of the line. Like the arrowheads, the
+              // bars stop short of the node, clear of the patch its name is on
               val markerStart =
-                if (g.tee) "marker-start=\"url(#tee)\" "
+                if (g.tee) "marker-start=\"url(#teeStart)\" "
                 else if (g.startArrow) "marker-start=\"url(#arrowStart)\" "
                 else ""
               val markerEnd =
-                if (g.tee) "marker-end=\"url(#tee)\""
+                if (g.tee) "marker-end=\"url(#teeEnd)\""
                 else if (g.endArrow) "marker-end=\"url(#arrowEnd)\""
                 else ""
 
