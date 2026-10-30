@@ -96,17 +96,33 @@ Each entry of `edge` is a string `from<arrow>to`, followed by an optional label:
 
 | Arrow | Drawing |
 |---|---|
+| `a-b` | Straight line |
 | `a->b` | Straight line with an arrowhead at `b` |
-| `a<-b` | Straight line with an arrowhead at `a` |
+| `a<-b` | Straight line with an arrowhead at `a` (an addition of Wavedrom Studio) |
 | `a<->b` | Straight line with arrowheads at both ends |
-| `a~>b` | Curve with an arrowhead at `b` |
-| `a<~>b` | Curve with arrowheads at both ends |
+| `a+b` | Straight line with a short bar across each end, to mark a distance |
+| `a~b` | Curve that leaves and arrives horizontally |
+| `a~>b` | The same curve with an arrowhead at `b` |
+| `a<~>b` | The same curve with arrowheads at both ends |
+| `a-~b` | Curve that leaves horizontally and arrives straight |
+| `a-~>b` | The same curve with an arrowhead at `b` |
+| `a<-~>b` | The same curve with arrowheads at both ends |
+| `a~-b` | Curve that leaves straight and arrives horizontally |
+| `a~->b` | The same curve with an arrowhead at `b` |
+| `a-\|b` | Right-angled line: across, then up or down |
+| `a-\|>b` | The same line with an arrowhead at `b` |
+| `a<-\|>b` | The same line with arrowheads at both ends |
+| `a\|-b` | Right-angled line: up or down, then across |
+| `a\|->b` | The same line with an arrowhead at `b` |
+| `a-\|-b` | Line with two bends: across half way, up or down, then across |
+| `a-\|->b` | The same line with an arrowhead at `b` |
+| `a<-\|->b` | The same line with arrowheads at both ends |
 
 ```json
 "edge": ["a~>b Request", "b->c 3 cycles"]
 ```
 
-The label, if any, is drawn halfway along the line.
+The label, if any, follows the arrow after a space. It is drawn halfway along the line, except that the label of `-|` (and its arrow forms) sits above or below `b`, that of `|-` above or below `a`, that of `-~` three quarters of the way along, and that of `~-` one quarter of the way along.
 
 ## Other keys
 
@@ -117,5 +133,4 @@ Keys the studio does not use, such as `head`, `foot` and `config` at the top lev
 This list covers what is known today. It is not a complete comparison, and WaveDrom itself changes over time.
 
 - **Added here:** the `color` key of a signal, and multi-character node names separated by spaces.
-- **Not supported:** the keys listed under [Other keys](#other-keys), which are kept but do not affect the drawing. Wave characters that are not in the table above, such as `|` for a gap, or `u` and `d`, are drawn as low. Edge arrows other than the five listed above are not drawn.
-- **Possibly different:** how wide a cycle is, how labels are placed, and the finer details of the drawing follow this program's own renderer, so a diagram can look different here and in WaveDrom.
+- **Not supported:** the keys listed under [Other keys](#other-keys), which are kept but do not affect the drawing. Wave characters that are not in the table above, such as `|` for a gap, or `u` and `d`, are drawn as low.- **Possibly different:** how wide a cycle is, how labels are placed, and the finer details of the drawing follow this program's own renderer, so a diagram can look different here and in WaveDrom.

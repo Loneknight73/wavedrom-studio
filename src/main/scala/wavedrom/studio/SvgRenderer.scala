@@ -74,6 +74,9 @@ object SvgRenderer {
         <marker id="arrowStart" viewBox="0 0 10 10" refX="-6" refY="5" markerWidth="9" markerHeight="9" orient="auto">
           <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="${Palette.edge}" />
         </marker>
+        <marker id="tee" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+          <path d="M 5 0 L 5 10" stroke="${Palette.edge}" stroke-width="1" fill="none" />
+        </marker>
       </defs>
     """)
 
@@ -380,65 +383,40 @@ object SvgRenderer {
         // 4. Render Edges / Connection Arrows
         if (diag.edges.nonEmpty) {
           sb.append("<g id=\"edgesLayer\" pointer-events=\"none\">")
-          val edgePattern =
-            """^([a-zA-Z0-9_]+)\s*(~>|->|<-|<->|<~>|-\|>|\|->)\s*([a-zA-Z0-9_]+)(?:\s+(.*))?$""".r
-
+          // An entry that does not parse, or names an unknown node, is skipped
           diag.edges.foreach { edgeStr =>
-            edgeStr.trim match {
-              case edgePattern(fromNode, edgeType, toNode, labelText) =>
-                for {
-                  p1 <- nodeLocations.get(fromNode)
-                  p2 <- nodeLocations.get(toNode)
-                } {
-                  val x1 = p1.x; val y1 = p1.y
-                  val x2 = p2.x; val y2 = p2.y
+            for {
+              edge <- EdgeShape.parse(edgeStr)
+              p1 <- nodeLocations.get(edge.from)
+              p2 <- nodeLocations.get(edge.to)
+            } {
+              val g = EdgeShape.geometry(edge.shape, (p1.x, p1.y), (p2.x, p2.y))
+              // A tee bar closes both ends of the line
+              val markerStart =
+                if (g.tee) "marker-start=\"url(#tee)\" "
+                else if (g.startArrow) "marker-start=\"url(#arrowStart)\" "
+                else ""
+              val markerEnd =
+                if (g.tee) "marker-end=\"url(#tee)\""
+                else if (g.endArrow) "marker-end=\"url(#arrowEnd)\""
+                else ""
 
-                  var pathD = ""
-                  var midX = (x1 + x2) / 2.0
-                  var midY = (y1 + y2) / 2.0
+              sb.append(
+                s"""<path d="${g.path}" fill="none" stroke="${Palette.edge}" stroke-width="1" $markerStart$markerEnd />"""
+              )
 
-                  val markerEnd =
-                    if (edgeType.contains(">")) "marker-end=\"url(#arrowEnd)\""
-                    else ""
-                  val markerStart =
-                    if (edgeType.contains("<"))
-                      "marker-start=\"url(#arrowStart)\""
-                    else ""
-
-                  if (
-                    edgeType == "->" || edgeType == "<-" || edgeType == "<->"
-                  ) {
-                    pathD = s"M $x1 $y1 L $x2 $y2"
-                  } else if (edgeType == "~>" || edgeType == "<~>") {
-                    // WaveDrom's spline: it leaves and arrives horizontally
-                    val dx = x2 - x1
-                    val c1x = x1 + dx * 0.7; val c1y = y1
-                    val c2x = x1 + dx * 0.3; val c2y = y2
-
-                    pathD = s"M $x1 $y1 C $c1x $c1y, $c2x $c2y, $x2 $y2"
-                    midX = 0.125 * x1 + 0.375 * c1x + 0.375 * c2x + 0.125 * x2
-                    midY = 0.125 * y1 + 0.375 * c1y + 0.375 * c2y + 0.125 * y2
-                  }
-
-                  sb.append(
-                    s"""<path d="$pathD" fill="none" stroke="${Palette.edge}" stroke-width="1" $markerStart$markerEnd />"""
-                  )
-
-                  if (labelText != null && labelText.trim.nonEmpty) {
-                    // The label sits on the line, on a patch of paper
-                    val label = labelText.trim
-                    val labelW = label.length * 6.0 + 6
-                    sb.append(
-                      s"""<rect x="${midX - labelW / 2}" y="${midY - 7}" width="$labelW" height="14" fill="${Palette.paper}" />"""
-                    )
-                    sb.append(
-                      s"""<text x="$midX" y="${midY + 3.5}" fill="${Palette.ink}" font-size="11" text-anchor="middle">${escapeHtml(
-                          label
-                        )}</text>"""
-                    )
-                  }
-                }
-              case _ =>
+              edge.label.foreach { label =>
+                // The label sits on the line, on a patch of paper
+                val labelW = label.length * 6.0 + 6
+                sb.append(
+                  s"""<rect x="${g.labelX - labelW / 2}" y="${g.labelY - 7}" width="$labelW" height="14" fill="${Palette.paper}" />"""
+                )
+                sb.append(
+                  s"""<text x="${g.labelX}" y="${g.labelY + 3.5}" fill="${Palette.ink}" font-size="11" text-anchor="middle">${escapeHtml(
+                      label
+                    )}</text>"""
+                )
+              }
             }
           }
           sb.append("</g>")
