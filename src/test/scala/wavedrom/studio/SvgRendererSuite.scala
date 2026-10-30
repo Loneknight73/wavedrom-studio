@@ -372,4 +372,12 @@ class SvgRendererSuite extends munit.FunSuite {
     assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "1H.." } ] }"""), "clock-arrow"), 0)
     assertEquals(occurrences(render("""{ "signal": [ { "name": "a", "wave": "0H..L." } ] }"""), "clock-arrow"), 2)
   }
+
+  test("a title span without a size keeps the default, not the largest size") {
+    val svg = render("""{ "signal": [ { "name": "a", "wave": "01" } ],
+      "head": { "text": ["tspan", ["tspan", { "class": "h1" }, "big"], " small"] } }""")
+    assert(svg.contains("""<text class="caption" x="""), svg)
+    val caption = svg.drop(svg.indexOf("""<text class="caption""""))
+    assert(caption.takeWhile(_ != '>').contains("""font-size="14""""), caption.take(200))
+  }
 }

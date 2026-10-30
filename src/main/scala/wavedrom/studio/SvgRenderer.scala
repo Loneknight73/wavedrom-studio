@@ -124,11 +124,13 @@ object SvgRenderer {
           }
         diag.head.foreach(labelRow(_, rulerY))
         diag.foot.foreach(labelRow(_, linesEnd + 14))
-        // Title and caption, centred over the waves
+        // Title and caption, centred over the waves. The largest span only sets
+        // the line height; spans without a size of their own keep the default,
+        // as in WaveDrom, instead of inheriting the largest one
         def captionText(cap: Option[Caption], size: Option[Double], y: Double): Unit =
-          for (c <- cap; t <- c.text; s <- size)
+          for (c <- cap; t <- c.text; _ <- size)
             sb.append(
-              s"""<text class="caption" x="$waveCentreX" y="$y" fill="${Palette.ink}" font-size="$s" text-anchor="middle">${RichText.toSvg(t)}</text>"""
+              s"""<text class="caption" x="$waveCentreX" y="$y" fill="${Palette.ink}" font-size="$defaultTitleSize" text-anchor="middle">${RichText.toSvg(t)}</text>"""
             )
         captionText(diag.head, headSize, headSize.getOrElse(0.0) + 4)
         captionText(diag.foot, footSize, linesEnd + footTickH + footSize.getOrElse(0.0) + 6)
