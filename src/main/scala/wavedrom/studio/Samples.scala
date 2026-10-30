@@ -97,6 +97,25 @@ object Samples {
     { "name": "irq",   "wave": "0....1.0.", "color": "#f0605a" }
   ]
 }"""
+    ),
+    Sample(
+      "edge-arrows",
+      "edge-arrows.json",
+      """{
+  "signal": [
+    { "name": "req",  "wave": "0.1...0..1..", "node": ".a.......e.." },
+    { "name": "gnt",  "wave": "0..1....0..1", "node": "....b......f" },
+    { "name": "data", "wave": "x.=.=.=.=.=.", "data": ["A", "B", "C", "D", "E"], "node": "......c....i" },
+    { "name": "addr", "wave": "1..0..1..0..", "node": "..g....d..h." },
+    { "name": "done", "wave": "0...1...0..1", "node": ".I...J..j..." }
+  ],
+  "edge": [
+    "a~b t1", "c-~a t2", "c-~>d time 3", "d~-e", "e~>f", "f->g",
+    "g-~>h", "h~>i some text", "h~->j",
+    "b-|a t1", "a-|c t2", "b-|-c t3", "c-|->e t4", "e-|>f more text",
+    "e|->d t6", "c-g", "f-h", "g<->h 3 ms", "I+J 5 ms"
+  ]
+}"""
     )
   )
 

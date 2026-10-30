@@ -187,7 +187,30 @@ class SvgRendererSuite extends munit.FunSuite {
     assert(!svg.contains("marker-end="))
   }
 
-  private val twoSignals = """{ "signal": [
+  test("a + edge is closed by a tee at each end, with no arrowheads") {
+    val svg = render("""{ "signal": [
+      { "name": "req", "wave": "01.0", "node": ".a.." },
+      { "name": "ack", "wave": "0.10", "node": "..b." }
+    ], "edge": ["a+b 5 ms"] }""")
+    assert(svg.contains("""<marker id="teeStart""""), svg)
+    assert(svg.contains("""marker-start="url(#teeStart)""""), svg)
+    assert(svg.contains("""marker-end="url(#teeEnd)""""), svg)
+    assert(!svg.contains("""marker-end="url(#arrowEnd)""""), svg)
+    assert(svg.contains(">5 ms</text>"))
+  }
+
+  test("draws an elbow edge as a path of straight segments") {
+    val svg = render("""{ "signal": [
+      { "name": "req", "wave": "01.0", "node": ".a.." },
+      { "name": "ack", "wave": "0.10", "node": "..b." }
+    ], "edge": ["a-|->b"] }""")
+    assert(svg.contains("""stroke="#0041c4""""), svg)
+    assert(svg.contains("""marker-end="url(#arrowEnd)""""), svg)
+    assert(occurrences(svg, " L ") >= 3, svg)
+    assert(!svg.contains(" C "), svg)
+  }
+
+  private val twoSignals ="""{ "signal": [
     { "name": "req", "wave": "01.0", "node": ".a.." },
     {},
     { "name": "ack", "wave": "0.10" }
